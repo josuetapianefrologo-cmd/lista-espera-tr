@@ -224,7 +224,7 @@ if (configurado) {
   onAuthStateChanged(auth, onUser);
 } else {
   $app.innerHTML = `<div class="login"><img class="logo" src="icon.svg" alt=""><h2>Falta configurar</h2>
-    <p style="color:var(--muted)">Pega la configuración de tu proyecto de Firebase en <b>index.html</b> (sección CONFIGURACIÓN). Ver GUIA.md.</p></div>`;
+    <p style="color:var(--muted)">Pega la configuración de tu proyecto de Firebase en <b>index.html</b> (sección CONFIGURACIÓN). Ver README.md.</p></div>`;
 }
 
 function renderLogin(msg = "") {
@@ -237,8 +237,7 @@ function renderLogin(msg = "") {
     <p style="color:var(--muted);font-size:12px;margin-top:18px">Acceso solo para personal autorizado.</p></div>`;
   document.getElementById("bLogin").onclick = async () => {
     const prov = new GoogleAuthProvider(); prov.setCustomParameters({prompt:"select_account"});
-    const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
-    try { standalone ? await signInWithRedirect(auth, prov) : await signInWithPopup(auth, prov); }
+    try { await signInWithPopup(auth, prov); }
     catch (e) { if (e.code === "auth/popup-blocked") await signInWithRedirect(auth, prov); else renderLogin("No se pudo iniciar sesión: " + esc(e.code || e.message)); }
   };
 }
