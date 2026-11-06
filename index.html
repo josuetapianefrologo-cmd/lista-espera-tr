@@ -58,7 +58,8 @@ nav.tabs svg{width:22px;height:22px}
 .t-info{background:var(--infobg);color:var(--info)}.t-gray{background:var(--graybg);color:var(--gray)}.t-purple{background:var(--purplebg);color:var(--purple)}
 .calls{display:flex;gap:6px;margin-top:10px}
 .callbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:10px;background:var(--okbg);color:var(--ok);font-weight:600;text-decoration:none;font-size:14px}
-.callbtn svg{width:16px;height:16px}
+.callbtn svg{width:16px;height:16px;flex:0 0 auto}
+.callbtn span{line-height:1.15;text-align:left}
 .empty{text-align:center;color:var(--muted);padding:40px 10px}
 .btn{border:0;border-radius:12px;padding:11px 16px;font-weight:600;cursor:pointer;background:var(--graybg);color:var(--ink)}
 .btn.pri{background:var(--navy);color:#fff}.btn.danger{background:var(--badbg);color:var(--bad)}
@@ -281,7 +282,8 @@ async function onUser(u) {
     S.desdeCache = snap.metadata.fromCache;
     render();
   }, e => { $app.innerHTML = `<div class="empty">Error de acceso: ${esc(e.code)}</div>`; }));
-  if (S.rol === "admin") S.unsub.push(onSnapshot(doc(db, "config", "acceso"), s => { S.acceso = { editores:[], lectores:[], ...(s.data()||{}) }; if (S.tab === "ajustes") render(); }));
+  if (S.rol === "admin") S.unsub.push(onSnapshot(doc(db, "config", "acceso"), s => { S.acceso = { editores:[], lectores:[], ...(s.data()||{}) }; if (S.tab === "mas" && S.mas === "ajustes") render(); }));
+  subscribeListas();
 }
 addEventListener("online", () => { S.online = true; render(); });
 addEventListener("offline", () => { S.online = false; render(); });
@@ -296,18 +298,17 @@ function render() {
   if (!S.user || !S.rol) return;
   const scroll = scrollY;
   const syncTxt = !S.online ? "Sin conexión · guardado en el equipo" : S.pendientes ? "Sincronizando…" : "Sincronizado";
-  const tabs = [["elegibles","Elegibles",I.star],["lista","Lista",I.list],["resumen","Resumen",I.chart],["historial","Cambios",I.clock]];
-  if (S.rol === "admin") tabs.push(["ajustes","Ajustes",I.gear]);
+  const tabs = [["elegibles","Elegibles",I.star],["lista","Listos",I.list],["protocolo","Protocolo",I.prot],["espera","Espera",I.fila],["mas","Más",I.mas]];
   $app.innerHTML = `
   <header><div class="hrow"><div class="htitle"><b>Lista de Espera TR</b><small>${esc(S.user.email)} · ${S.rol === "lector" ? "solo consulta" : S.rol}</small></div>
     <span class="sync ${!S.online ? "off" : ""}">${syncTxt}</span></div></header>
   <main id="main"></main>
-  ${puedeEditar() && (S.tab === "lista" || S.tab === "elegibles") ? `<button class="fab" id="fab" aria-label="Nuevo paciente">+</button>` : ""}
+  ${puedeEditar() && ["lista","elegibles","espera"].includes(S.tab) ? `<button class="fab" id="fab" aria-label="Nuevo">+</button>` : ""}
   <nav class="tabs">${tabs.map(([k,l,ic]) => `<button data-tab="${k}" class="${S.tab===k?"on":""}">${ic}${l}</button>`).join("")}</nav>`;
   document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); scrollTo(0,0); });
-  const fab = document.getElementById("fab"); if (fab) fab.onclick = () => openForm(null);
+  const fab = document.getElementById("fab"); if (fab) fab.onclick = () => S.tab === "espera" ? regForm(S.q2 ? S.lst : S.lst, null) : openForm(null);
   const m = document.getElementById("main");
-  ({ elegibles: vElegibles, lista: vLista, resumen: vResumen, historial: vHistorial, ajustes: vAjustes })[S.tab](m);
+  ({ elegibles: vElegibles, lista: vLista, protocolo: vProtocolo, espera: vEspera, mas: vMas })[S.tab](m);
   scrollTo(0, scroll);
 }
 
@@ -321,7 +322,7 @@ function ptCard(p, conTel = false) {
   return `<div class="card" data-id="${esc(p.id)}"><div class="pt">
     <div class="gb">${esc(p.grupo)}</div>
     <div class="info"><div class="name">${esc(p.nombre)}</div>
-      <div class="meta">${[edad(p.fnac) !== "" ? edad(p.fnac) + " años" : "", p.terapia, p.noTx ? "Tx #" + p.noTx : ""].filter(Boolean).map(esc).join(" · ")}</div>
+      <div class="meta">${[p.regL && lugar(p.regL, p.regK) ? "Lugar " + lugar(p.regL, p.regK) : "", edad(p.fnac) !== "" ? edad(p.fnac) + " años" : "", p.terapia, p.noTx ? "Tx #" + p.noTx : "", p.idCenatra ? "ID " + p.idCenatra : ""].filter(Boolean).map(esc).join(" · ")}</div>
       <div class="tags"><span class="tag ${tagEstatus(p.estatus)}">${esc(p.estatus || "SIN ESTATUS")}${p.motivo && /DIFERIDO|BAJA/.test(p.estatus) ? " · " + esc(p.motivo) : ""}</span>
         ${pr.alerta !== "—" ? `<span class="tag ${tagAlerta(pr.alerta)}">Protocolo: ${pr.alerta}</span>` : ""}
         ${pr.prox && pr.alerta !== "—" ? `<span class="tag t-gray">Vence ${fmtD(pr.prox)}</span>` : ""}</div>
@@ -390,7 +391,7 @@ function vResumen(m) {
 function vHistorial(m) {
   m.innerHTML = `<div class="empty">Cargando cambios…</div>`;
   const un = onSnapshot(query(collection(db, "historial"), orderBy("fecha","desc"), limit(150)), snap => {
-    if (S.tab !== "historial") { un(); return; }
+    if (S.tab !== "mas" || S.mas !== "historial") { un(); return; }
     const rows = snap.docs.map(d => d.data());
     m.innerHTML = `<div class="sec">Últimos ${rows.length} cambios</div>` + (rows.length ? rows.map(histItem).join("") : `<div class="empty">Sin cambios registrados.</div>`);
   }, e => m.innerHTML = `<div class="empty">No se pudo cargar: ${esc(e.code)}</div>`);
@@ -456,7 +457,8 @@ function openFicha(id) {
   const est = ESTUDIOS.map(([k,l,mes]) => { const e = evalEstudio(k, p.estudios?.[k] || "", mes);
     const cls = {ok:"t-ok",pronto:"t-warn",cad:"t-bad",falta:"t-gray",na:"t-gray"}[e.s];
     return `<div class="st tag ${cls}" style="border-radius:10px"><b>${l}${mes ? ` <span style="font-weight:400">(${mes} m)</span>` : ""}</b><span>${e.txt}</span></div>`; }).join("");
-  const kv = [["Edad", edad(p.fnac) !== "" ? edad(p.fnac) + " años" : "—"],["Nacimiento", fmt(p.fnac)],["NSS", p.nss],["Agregado", p.agregado],
+  const lg = p.regL && p.regK ? lugar(p.regL, p.regK) : null;
+  const kv = [...(lg ? [["Lugar en lista", `${lg} · ${LST[p.regL].n}`]] : []), ...(p.idCenatra ? [["ID CENATRA", p.idCenatra]] : []), ["Edad", edad(p.fnac) !== "" ? edad(p.fnac) + " años" : "—"],["Nacimiento", fmt(p.fnac)],["NSS", p.nss],["Agregado", p.agregado],
     ["Terapia", p.terapia],["No. trasplante", p.noTx],["Etiología", p.etiologia],["Fecha estatus", fmt(p.fechaEstatus)],
     ...(/DIFERIDO|BAJA/.test(p.estatus) ? [["Motivo", p.motivo]] : []),...(p.estatus === "DIFERIDO TEMPORAL" ? [["Revalorar el", fmt(p.revalorar)]] : []),["Último contacto", fmt(p.ultimoContacto)]]
     .map(([k,v]) => `<div><small>${k}</small>${esc(v || "—")}</div>`).join("");
@@ -496,6 +498,13 @@ async function guardar(id, nuevo, accion) {
   const batch = writeBatch(db);
   batch.set(ref, data);
   batch.set(doc(collection(db, "historial")), { pacienteId: ref.id, nombre: nuevo.nombre, accion, cambios, por: S.user.email, fecha: serverTimestamp() });
+  if (nuevo.regL && nuevo.regK && S.reg[nuevo.regL]?.[nuevo.regK] && (antes?.estatus !== nuevo.estatus) && ["TRASPLANTADO","BAJA DEFINITIVA"].includes(nuevo.estatus)) {
+    const bm = nuevo.estatus === "TRASPLANTADO" ? "Trasplante" : (nuevo.motivo === "Defunción" ? "Defunción" : (nuevo.motivo || "Otro"));
+    batch.update(doc(db, "listas", nuevo.regL), { [`items.${nuevo.regK}.f`]: "B", [`items.${nuevo.regK}.bm`]: bm, [`items.${nuevo.regK}.bf`]: iso(new Date()) });
+    batch.set(doc(collection(db, "historial")), { pacienteId: `${nuevo.regL}:${nuevo.regK}`, nombre: nuevo.nombre, accion: "Baja de la lista", cambios: { "Motivo de baja": ["", bm] }, por: S.user.email, fecha: serverTimestamp() });
+  } else if (nuevo.regL && nuevo.regK && S.reg[nuevo.regL]?.[nuevo.regK]?.f === "B" && !["TRASPLANTADO","BAJA DEFINITIVA"].includes(nuevo.estatus) && ["TRASPLANTADO","BAJA DEFINITIVA"].includes(antes?.estatus)) {
+    batch.update(doc(db, "listas", nuevo.regL), { [`items.${nuevo.regK}.f`]: "L", [`items.${nuevo.regK}.bm`]: "", [`items.${nuevo.regK}.bf`]: "" });
+  }
   batch.commit().catch(e => toast("Error al guardar: " + (e.code || e.message)));
   // No esperamos al servidor: con mala señal queda guardado en el equipo y se sube al volver la conexión.
   toast(S.online ? "Guardado" : "Guardado en el equipo · se subirá al volver la señal");
@@ -583,6 +592,7 @@ function exportCSV() {
 async function importar(ev) {
   const f = ev.target.files[0]; if (!f) return;
   let arr; try { arr = JSON.parse(await f.text()); } catch { return toast("Archivo no válido"); }
+  if (!Array.isArray(arr) && arr && arr.listas) { ev.target.value = ""; return importarListas(arr); }
   if (!Array.isArray(arr)) return toast("El archivo debe ser una lista de pacientes");
   const existentes = new Set(S.pacientes.map(p => p.nombre));
   const nuevos = arr.filter(p => p.nombre && p.grupo && !existentes.has(p.nombre.trim().toUpperCase()));
@@ -599,6 +609,309 @@ async function importar(ev) {
   }
   toast(`${nuevos.length} pacientes importados`); ev.target.value = "";
 }
+
+I.prot = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>';
+I.fila = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.5a3 3 0 0 1 0 6M21 21v-2a4 4 0 0 0-3-3.9"/></svg>';
+I.mas = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+// ===================== LISTAS DE ESPERA (registro completo) =====================
+// Cada lista es un documento en "listas" con un mapa items: { clave: registro }.
+// Fases: E = en espera de turno · P = en protocolo · L = protocolo terminado (pasa a "Listos") · B = baja.
+// El lugar en lista se recalcula solo: se cuentan todos los que NO están dados de baja, en orden de registro.
+const LISTAS = [
+  ["CAD_OP","O+","Cadáver O+"],["CAD_AP","A+","Cadáver A+"],["CAD_BP","B+","Cadáver B+"],["CAD_ABP","AB+","Cadáver AB+"],
+  ["CAD_ON","O-","Cadáver O−"],["CAD_AN","A-","Cadáver A−"],["CAD_BN","B-","Cadáver B−"],["CAD_ABN","AB-","Cadáver AB−"],
+  ["VIVO","","Donador vivo"]
+];
+const LST = Object.fromEntries(LISTAS.map(([id,g,n]) => [id, { id, g, n }]));
+const LST_DE_GRUPO = Object.fromEntries(LISTAS.filter(l => l[1]).map(([id,g]) => [g, id]));
+const FASE = { E:"EN ESPERA DE TURNO", P:"EN PROTOCOLO", L:"PROTOCOLO TERMINADO", B:"BAJA" };
+const FASE_CLS = { E:"t-gray", P:"t-info", L:"t-ok", B:"t-bad" };
+const MOTIVOS_BAJA_REG = ["Trasplante","Defunción","Cambio de hospital","No desea trasplantarse","Contraindicación definitiva","Migrado a cadáver","Otro"];
+const REG_LABEL = { n:"Nombre", id:"ID CENATRA", nss:"NSS", curp:"CURP", fnac:"Fecha nacimiento", fr:"Fecha de registro", res:"Residencia", tel:"Teléfonos", mail:"Correo",
+  est:"Estatus (texto)", obs:"Observaciones", f:"Fase", ip:"Inicio de protocolo", bm:"Motivo de baja", bf:"Fecha de baja", don:"Donador", par:"Parentesco", mod:"Modalidad", gpo:"Grupo", sx:"Sexo", adsc:"Adscripción" };
+S.reg = {}; S.pos = {}; S.lst = "CAD_OP"; S.q2 = ""; S.verBajas = false; S.lim = 150; S.fProt = ""; S.mas = "resumen";
+
+function recalcPos() {
+  S.pos = {};
+  for (const [L] of LISTAS) {
+    const it = Object.entries(S.reg[L] || {}).filter(([,r]) => r.f !== "B").sort((a,b) => (a[1].o||0) - (b[1].o||0));
+    S.pos[L] = { total: it.length, map: Object.fromEntries(it.map(([k], i) => [k, i + 1])) };
+  }
+}
+const lugar = (L, k) => S.pos[L]?.map[k] || null;
+const regs = L => Object.entries(S.reg[L] || {}).map(([k, r]) => ({ ...r, k, L }));
+const todos = () => LISTAS.flatMap(([L]) => regs(L));
+const nrm = s => String(s || "").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+
+function subscribeListas() {
+  for (const [L] of LISTAS) {
+    S.unsub.push(onSnapshot(doc(db, "listas", L), s => { S.reg[L] = (s.data() || {}).items || {}; recalcPos(); if (["espera","protocolo","lista","elegibles","mas"].includes(S.tab)) render(); }, () => {}));
+  }
+}
+
+// Teléfonos escritos libremente → botones de llamada con su etiqueta (PAC, MAMÁ, etc.)
+function telsDe(txt) {
+  const out = []; const re = /(\+?\d[\d\s\-().]{6,18}\d)\s*([A-Za-zÁÉÍÓÚÑáéíóúñ.()]+(?:\s[A-Za-zÁÉÍÓÚÑáéíóúñ.()]+)?)?/g; let m;
+  while ((m = re.exec(String(txt || ""))) && out.length < 8) { const d = m[1].replace(/\D/g, ""); if (d.length >= 7 && d.length <= 12) out.push({ d, n: m[1].trim(), et: (m[2] || "").trim() }); }
+  return out;
+}
+function regTelLinks(r) {
+  const t = telsDe(r.tel);
+  if (!t.length) return r.tel ? `<div class="meta" style="margin-top:8px">${esc(r.tel)}</div>` : `<div class="meta" style="margin-top:8px">Sin teléfono registrado</div>`;
+  return `<div class="calls" style="flex-wrap:wrap">${t.map(x => `<a class="callbtn" style="flex:1 1 45%" href="tel:${x.d}" onclick="event.stopPropagation()">${I.phone}<span>${esc(x.n)}${x.et ? `<br><small style="font-weight:400">${esc(x.et)}</small>` : ""}</span></a>`).join("")}</div>`;
+}
+
+function regCard(r, mostrarLista = false) {
+  const pos = lugar(r.L, r.k);
+  return `<div class="card" data-reg="${esc(r.L)}|${esc(r.k)}"><div class="pt">
+    <div class="gb" style="min-width:58px;font-size:${pos && pos > 999 ? 13 : 15}px">${r.f === "B" ? "—" : "#" + pos}</div>
+    <div class="info"><div class="name">${esc(r.n)}</div>
+      <div class="meta">${[mostrarLista ? LST[r.L].n : "", r.id ? "ID " + r.id : "", r.fr ? "Reg. " + fmt(r.fr) : "", r.L === "VIVO" && r.don ? "Donador: " + r.don : ""].filter(Boolean).map(esc).join(" · ")}</div>
+      <div class="tags"><span class="tag ${FASE_CLS[r.f]}">${FASE[r.f]}${r.f === "B" && r.bm ? " · " + esc(r.bm) : ""}</span>${r.est ? `<span class="tag t-gray">${esc(r.est.slice(0, 40))}</span>` : ""}${r.nota ? `<span class="tag t-warn">${esc(r.nota)}</span>` : ""}</div>
+    </div></div></div>`;
+}
+function bindRegs(root) { root.querySelectorAll(".card[data-reg]").forEach(c => c.onclick = () => { const [L, k] = c.dataset.reg.split("|"); openReg(L, k); }); }
+
+function vEspera(m) {
+  const q = nrm(S.q2).trim();
+  let arr, titulo;
+  if (q) {
+    arr = todos().filter(r => (S.verBajas || r.f !== "B") && (nrm(r.n).includes(q) || String(r.id || "").includes(q) || String(r.nss || "").replace(/\D/g, "").includes(q.replace(/\D/g, "") || "~") || nrm(r.curp).includes(q)));
+    titulo = `${arr.length} resultado${arr.length === 1 ? "" : "s"} en todas las listas`;
+  } else {
+    arr = regs(S.lst).filter(r => S.verBajas || r.f !== "B");
+    titulo = `${LST[S.lst].n} · ${S.pos[S.lst]?.total || 0} en lista`;
+  }
+  arr.sort((a,b) => (a.L === b.L ? 0 : LISTAS.findIndex(l => l[0] === a.L) - LISTAS.findIndex(l => l[0] === b.L)) || (a.f === "B") - (b.f === "B") || (a.o || 0) - (b.o || 0));
+  const vis = arr.slice(0, S.lim);
+  const cnt = L => S.pos[L]?.total || 0;
+  m.innerHTML = `<div class="search"><input id="q2" type="search" placeholder="Buscar en todas las listas: nombre, ID CENATRA, NSS o CURP" value="${esc(S.q2)}"></div>
+    <div class="chips">${LISTAS.map(([L,,n]) => `<button class="chip ${!q && S.lst===L?"on":""}" data-l="${L}">${n.replace("Cadáver ","")} <b>${cnt(L)}</b></button>`).join("")}</div>
+    <div class="row" style="justify-content:space-between;align-items:center"><div class="sec" style="margin:8px 2px">${esc(titulo)}</div>
+      <label style="font-size:12px;color:var(--muted)"><input type="checkbox" id="vb" ${S.verBajas?"checked":""}> Ver bajas</label></div>
+    ${!Object.keys(S.reg).length ? `<div class="empty">Cargando listas…</div>` : vis.length ? vis.map(r => regCard(r, !!q)).join("") : `<div class="empty">Sin registros.</div>`}
+    ${arr.length > vis.length ? `<button class="btn block" id="mas">Mostrar más (${arr.length - vis.length} restantes)</button>` : ""}`;
+  const qi = m.querySelector("#q2");
+  qi.oninput = () => { S.q2 = qi.value; S.lim = 150; const pos = qi.selectionStart; render(); const n = document.getElementById("q2"); n.focus(); n.setSelectionRange(pos, pos); };
+  m.querySelectorAll("[data-l]").forEach(b => b.onclick = () => { S.lst = b.dataset.l; S.q2 = ""; S.lim = 150; render(); });
+  m.querySelector("#vb").onchange = e => { S.verBajas = e.target.checked; render(); };
+  const mb = m.querySelector("#mas"); if (mb) mb.onclick = () => { S.lim += 300; render(); };
+  bindRegs(m);
+}
+
+function vProtocolo(m) {
+  const hoyD = hoy();
+  let arr = todos().filter(r => r.f === "P" && (!S.fProt || (S.fProt === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO")));
+  arr.sort((a,b) => (a.ip || "9999").localeCompare(b.ip || "9999") || (a.o || 0) - (b.o || 0));
+  const dias = r => r.ip ? Math.round((hoyD - parse(r.ip)) / 864e5) : null;
+  m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes con protocolo <b>en curso</b>. Siguen en su lista de espera con su número. Los que llevan más tiempo aparecen primero, para ver a quién hay que agilizar.</div>
+    <div class="chips">${[["","Todos"],["CAD","Cadáver"],["VIVO","Donador vivo"]].map(([k,l]) => `<button class="chip ${S.fProt===k?"on":""}" data-p="${k}">${l} <b>${todos().filter(r => r.f === "P" && (!k || (k === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"))).length}</b></button>`).join("")}</div>
+    ${arr.map(r => { const d = dias(r); return regCard(r, true).replace('<div class="tags">', `<div class="tags">${d !== null ? `<span class="tag ${d > 180 ? "t-bad" : d > 90 ? "t-warn" : "t-ok"}">${d} días en protocolo</span>` : `<span class="tag t-gray">Sin fecha de inicio</span>`}`); }).join("") || `<div class="empty">Sin pacientes en protocolo.</div>`}`;
+  m.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { S.fProt = b.dataset.p; render(); });
+  bindRegs(m);
+}
+
+function resumenListas() {
+  const fila = L => { const r = regs(L); const c = f => r.filter(x => x.f === f).length; return `<tr><td><b>${LST[L].n.replace("Cadáver ","")}</b></td><td>${S.pos[L]?.total || 0}</td><td>${c("E")||""}</td><td>${c("P")||""}</td><td>${c("L")||""}</td><td>${c("B")||""}</td></tr>`; };
+  return `<div class="sec">Listas de espera (registro completo)</div>
+    <div style="overflow-x:auto"><table class="res"><tr><th>Lista</th><th>En lista</th><th>Espera</th><th>Protoc.</th><th>Termin.</th><th>Bajas</th></tr>${LISTAS.map(([L]) => fila(L)).join("")}</table></div>
+    <div style="font-size:12px;color:var(--muted);margin:6px 2px 0">"En lista" = todos los que no están dados de baja; con eso se calcula el número que se le da al paciente.</div>`;
+}
+
+function vMas(m) {
+  const subs = [["resumen","Resumen"],["historial","Cambios"],...(S.rol === "admin" ? [["ajustes","Ajustes"]] : [])];
+  m.innerHTML = `<div class="chips">${subs.map(([k,l]) => `<button class="chip ${S.mas===k?"on":""}" data-m="${k}">${l}</button>`).join("")}</div><div id="sub"></div>`;
+  m.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { S.mas = b.dataset.m; render(); });
+  const sub = m.querySelector("#sub");
+  ({ resumen: x => { vResumen(x); x.insertAdjacentHTML("afterbegin", resumenListas()); }, historial: vHistorial, ajustes: vAjustes })[S.mas](sub);
+}
+
+// ---------- Ficha del registro ----------
+function openReg(L, k) {
+  const r = S.reg[L]?.[k]; if (!r) return;
+  const pos = lugar(L, k), tot = S.pos[L]?.total || 0, vivo = L === "VIVO";
+  const pac = r.pid ? S.pacientes.find(p => p.id === r.pid) : null;
+  const kv = [["ID CENATRA", r.id],["Fecha de registro", fmt(r.fr)],["NSS", r.nss],["CURP", r.curp],["Nacimiento", r.fnac ? `${fmt(r.fnac)} (${edad(r.fnac)} años)` : ""],["Residencia", r.res],
+    ...(vivo ? [["Grupo", r.gpo],["Sexo", r.sx],["Modalidad", r.mod],["Adscripción", r.adsc],["Donador", r.don],["Parentesco", r.par]] : []),
+    ["Inicio de protocolo", fmt(r.ip)],["Correo", r.mail], ...(r.f === "B" ? [["Motivo de baja", r.bm],["Fecha de baja", fmt(r.bf)]] : [])]
+    .filter(([,v]) => v && v !== "—").map(([a,v]) => `<div><small>${a}</small>${esc(v)}</div>`).join("");
+  const ed = puedeEditar();
+  const acciones = !ed ? "" : `<div class="sec">Acciones</div><div class="row">
+      <button class="btn" data-a="editar" style="flex:1">Editar datos</button><button class="btn" data-a="nota" style="flex:1">Registrar llamada / nota</button></div>
+    <div class="row" style="margin-top:8px">
+      ${r.f === "E" ? `<button class="btn pri" data-a="iniciar" style="flex:1">Iniciar protocolo</button>` : ""}
+      ${r.f === "P" && !vivo ? `<button class="btn pri" data-a="terminar" style="flex:1">Protocolo terminado → Listos</button>` : ""}
+      ${r.f === "P" ? `<button class="btn" data-a="regresar" style="flex:1">Regresar a espera</button>` : ""}
+      ${vivo && r.f !== "B" ? `<button class="btn" data-a="migrar" style="flex:1">Donador no apto → pasar a cadáver</button>` : ""}
+      ${r.f !== "B" ? `<button class="btn danger" data-a="baja" style="flex:1">Dar de baja</button>` : (S.rol === "admin" ? `<button class="btn" data-a="reactivar" style="flex:1">Reactivar</button>` : "")}
+    </div>`;
+  const sh = sheet(esc(r.n), `
+    <div class="card" style="text-align:center;background:var(--navy);color:#fff;border:0">
+      ${r.f === "B" ? `<div style="font-size:22px;font-weight:700">Dado de baja</div><div style="opacity:.8">${esc(r.bm || "")}</div>` :
+        `<div style="font-size:13px;opacity:.8">${esc(LST[L].n)}</div><div style="font-size:44px;font-weight:800;line-height:1.1">Lugar ${pos}</div><div style="opacity:.8;font-size:13px">de ${tot} en lista</div>`}
+    </div>
+    <div class="tags" style="margin:0 0 10px"><span class="tag ${FASE_CLS[r.f]}">${FASE[r.f]}</span>${r.est ? `<span class="tag t-gray">${esc(r.est)}</span>` : ""}${r.nota ? `<span class="tag t-warn">${esc(r.nota)}</span>` : ""}
+      ${pac ? `<span class="tag t-ok" data-a="verpac" style="cursor:pointer">Ver ficha de protocolo terminado ›</span>` : ""}</div>
+    ${regTelLinks(r)}
+    ${r.obs ? `<div class="card" style="margin-top:12px"><small style="color:var(--muted)">OBSERVACIONES</small><div style="white-space:pre-wrap">${esc(r.obs)}</div></div>` : ""}
+    <div class="card" style="margin-top:12px"><div class="kv">${kv}</div></div>
+    ${acciones}
+    <div class="sec">Historial</div><div id="hr"><div class="empty" style="padding:10px">Cargando…</div></div>`);
+  const un = onSnapshot(query(collection(db, "historial"), where("pacienteId", "==", `${L}:${k}`), limit(40)), snap => {
+    const rows = snap.docs.map(d => d.data()).sort((a,b) => (b.fecha?.seconds||9e9) - (a.fecha?.seconds||9e9));
+    const h = sh.el.querySelector("#hr"); if (h) h.innerHTML = rows.length ? rows.map(histItem).join("") : `<div style="color:var(--muted);font-size:13px">Sin cambios registrados desde que se usa la app.</div>`;
+  }, () => {});
+  sh.el.__onClose = un;
+  const act = (a, fn) => { const b = sh.el.querySelector(`[data-a="${a}"]`); if (b) b.onclick = fn; };
+  act("verpac", () => sh.close().then(() => openFicha(pac.id)));
+  act("editar", () => sh.close().then(() => regForm(L, k)));
+  act("nota", () => sh.close().then(() => regNota(L, k)));
+  act("iniciar", () => { if (confirm(`¿Iniciar protocolo de ${r.n}? Conserva su lugar en la lista.`)) { regGuardar(L, k, { f: "P", ip: iso(new Date()) }, "Inicia protocolo"); sh.close(); } });
+  act("regresar", () => { if (confirm("¿Regresar a espera de turno?")) { regGuardar(L, k, { f: "E" }, "Regresa a espera"); sh.close(); } });
+  act("terminar", () => { if (confirm(`¿Marcar protocolo terminado? ${r.n} pasará a la lista de Listos (Elegibles cuando esté ACTIVO). Conserva su lugar en la lista.`)) sh.close().then(() => pasarAListos(L, k)); });
+  act("baja", () => sh.close().then(() => regBaja(L, k)));
+  act("migrar", () => sh.close().then(() => regMigrar(k)));
+  act("reactivar", () => { if (confirm("¿Reactivar en la lista? Recupera su lugar según su fecha de registro.")) { regGuardar(L, k, { f: "E", bm: "", bf: "" }, "Reactivado en lista"); sh.close(); } });
+}
+
+// Guarda cambios de un registro (funciona sin señal: se sube al volver la conexión)
+function regGuardar(L, k, cambiosObj, accion, extraBatch) {
+  const antes = S.reg[L]?.[k] || {}; const upd = {}, cambios = {};
+  for (const [c, v] of Object.entries(cambiosObj)) {
+    if ((antes[c] ?? "") === (v ?? "")) continue;
+    upd[`items.${k}.${c}`] = v;
+    const fmtv = x => c === "f" ? (FASE[x] || x || "") : String(x ?? "");
+    cambios[REG_LABEL[c] || c] = [fmtv(antes[c]), fmtv(v)];
+  }
+  if (!Object.keys(upd).length && !extraBatch) { toast("Sin cambios"); return; }
+  const b = writeBatch(db);
+  if (Object.keys(upd).length) b.update(doc(db, "listas", L), upd);
+  b.set(doc(collection(db, "historial")), { pacienteId: `${L}:${k}`, nombre: cambiosObj.n || antes.n, accion, cambios, por: S.user.email, fecha: serverTimestamp() });
+  if (extraBatch) extraBatch(b);
+  b.commit().catch(e => toast("Error al guardar: " + (e.code || e.message)));
+  toast(S.online ? "Guardado" : "Guardado en el equipo · se subirá al volver la señal");
+}
+const nuevaClave = () => "n" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+const ultimoOrden = L => Math.max(0, ...Object.values(S.reg[L] || {}).map(r => r.o || 0));
+
+function regForm(L, k) {
+  const nuevo = !k; const r = nuevo ? { f: "E", fr: iso(new Date()) } : { ...S.reg[L][k] };
+  let lista = L; const vivo = () => lista === "VIVO";
+  const campos = () => [["n","Nombre completo *"],["id","ID CENATRA"],["nss","NSS"],["curp","CURP"],["fnac","Fecha de nacimiento","date"],["res","Residencia"],
+    ...(vivo() ? [["gpo","Grupo sanguíneo"],["sx","Sexo"],["mod","Modalidad (HD/DP…)"],["adsc","Adscripción"],["don","Donador"],["par","Parentesco"]] : []),
+    ["mail","Correo"],["est","Estatus (texto libre)"],["nota","Aviso destacado (ej. VERIFICAR GRUPO)"]];
+  const html = () => `${nuevo ? `<label class="f">Lista *<select id="rl">${LISTAS.map(([id,,n]) => `<option value="${id}" ${id===lista?"selected":""}>${n}</option>`).join("")}</select></label>
+      <div class="notice" style="background:var(--infobg);color:var(--info)">El nuevo registro queda <b>al final</b> de la lista, con fecha de hoy.</div>` : ""}
+    <div class="grid2">${campos().map(([c,l,t]) => `<label class="f">${l}<input ${t ? `type="${t}"` : ""} data-c="${c}" value="${esc(r[c] || "")}"></label>`).join("")}</div>
+    <label class="f">Teléfonos (con etiqueta: 477 123 45 67 PACIENTE · 477 … MAMÁ)<textarea data-c="tel" rows="3">${esc(r.tel || "")}</textarea></label>
+    <label class="f">Observaciones<textarea data-c="obs" rows="4">${esc(r.obs || "")}</textarea></label>
+    <button class="btn pri block" id="rg">${nuevo ? "Registrar en lista" : "Guardar cambios"}</button>`;
+  const sh = sheet(nuevo ? "Nuevo registro en lista" : "Editar registro", html());
+  const bind = () => {
+    const sel = sh.el.querySelector("#rl"); if (sel) sel.onchange = () => { sh.el.querySelectorAll("[data-c]").forEach(i => r[i.dataset.c] = i.value); lista = sel.value; sh.el.querySelector(".sh-body").innerHTML = html(); bind(); };
+    sh.el.querySelector("#rg").onclick = () => {
+      const v = {}; sh.el.querySelectorAll("[data-c]").forEach(i => v[i.dataset.c] = i.value.trim());
+      v.n = v.n.toUpperCase(); if (!v.n) return toast("Falta el nombre");
+      if (nuevo) {
+        const dup = todos().find(x => x.f !== "B" && ((v.id && x.id === v.id) || nrm(x.n) === nrm(v.n)));
+        if (dup && !confirm(`Ya existe ${dup.n} en ${LST[dup.L].n} (lugar ${lugar(dup.L, dup.k) || "—"}). ¿Registrar de todos modos?`)) return;
+        const kk = nuevaClave();
+        const b = writeBatch(db);
+        b.set(doc(db, "listas", lista), { items: { [kk]: { ...v, f: "E", fr: iso(new Date()), o: ultimoOrden(lista) + 1 } } }, { merge: true });
+        b.set(doc(collection(db, "historial")), { pacienteId: `${lista}:${kk}`, nombre: v.n, accion: `Registrado en ${LST[lista].n}`, cambios: {}, por: S.user.email, fecha: serverTimestamp() });
+        b.commit().catch(e => toast("Error: " + (e.code || e.message)));
+        toast(`Registrado al final de ${LST[lista].n}`); sh.close();
+      } else { regGuardar(L, k, v, "Datos modificados"); sh.close(); }
+    };
+  };
+  bind();
+}
+
+function regNota(L, k) {
+  const r = S.reg[L][k];
+  const sh = sheet("Registrar llamada / nota", `<div style="margin-bottom:10px"><b>${esc(r.n)}</b></div>
+    <label class="f">Fecha<input type="date" id="nf" value="${iso(new Date())}"></label>
+    <label class="f">Qué pasó<textarea id="nt" rows="3" placeholder="Ej. no contesta · se cita 15/11 · se le informa su lugar"></textarea></label>
+    <label class="f">Estatus (texto, opcional)<input id="ne" value="${esc(r.est || "")}" placeholder="Ej. NO LOCALIZABLE, CITADO, CONTRAINDICADO TEMPORAL"></label>
+    <button class="btn pri block" id="ng">Guardar</button>`);
+  sh.el.querySelector("#ng").onclick = () => {
+    const t = sh.el.querySelector("#nt").value.trim(); const f = sh.el.querySelector("#nf").value;
+    if (!t) return toast("Escribe la nota");
+    const [y,mo,d] = f.split("-"); const linea = `${d}/${mo}/${y} ${t}`;
+    regGuardar(L, k, { obs: r.obs ? `${linea}\n${r.obs}` : linea, est: sh.el.querySelector("#ne").value.trim() }, "Llamada / nota");
+    sh.close();
+  };
+}
+
+function regBaja(L, k) {
+  const r = S.reg[L][k];
+  const sh = sheet("Dar de baja de la lista", `<div style="margin-bottom:10px"><b>${esc(r.n)}</b> · ${esc(LST[L].n)} · lugar ${lugar(L, k)}</div>
+    <div class="notice">Al darlo de baja <b>sale del conteo</b> y los que están detrás avanzan un lugar. Queda registrado en el historial y se puede reactivar.</div>
+    <label class="f">Motivo *<select id="bm"><option value="">—</option>${MOTIVOS_BAJA_REG.filter(x => x !== "Migrado a cadáver").map(x => `<option>${x}</option>`).join("")}</select></label>
+    <label class="f">Fecha<input type="date" id="bf" value="${iso(new Date())}"></label>
+    <button class="btn danger block" id="bg">Dar de baja</button>`);
+  sh.el.querySelector("#bg").onclick = () => {
+    const bm = sh.el.querySelector("#bm").value; if (!bm) return toast("Elige el motivo");
+    regGuardar(L, k, { f: "B", bm, bf: sh.el.querySelector("#bf").value }, "Baja de la lista"); sh.close();
+  };
+}
+
+function regMigrar(k) {
+  const r = S.reg.VIVO[k]; const g = LST_DE_GRUPO[(r.gpo || "").replace("−","-")] || "";
+  const sh = sheet("Pasar a lista de cadáver", `<div style="margin-bottom:10px"><b>${esc(r.n)}</b></div>
+    <div class="notice">Se da de baja de donador vivo (motivo: donador no apto) y se registra <b>al final</b> de la lista de cadáver de su grupo, con fecha de hoy.</div>
+    <label class="f">Grupo sanguíneo del paciente *<select id="mg"><option value="">—</option>${LISTAS.filter(l => l[1]).map(([id,gr]) => `<option value="${id}" ${id===g?"selected":""}>${gr}</option>`).join("")}</select></label>
+    <button class="btn pri block" id="mgo">Pasar a cadáver</button>`);
+  sh.el.querySelector("#mgo").onclick = () => {
+    const dest = sh.el.querySelector("#mg").value; if (!dest) return toast("Elige el grupo");
+    const kk = nuevaClave(); const pv = lugar("VIVO", k);
+    const nuevoReg = { n: r.n, nss: r.nss || "", curp: r.curp || "", fnac: r.fnac || "", res: r.res || "", tel: r.tel || "", mail: r.mail || "", id: r.id || "",
+      obs: `${iso(new Date()).split("-").reverse().join("/")} Viene de donador vivo (lugar ${pv}); donador no apto.${r.obs ? "\n" + r.obs : ""}`, f: "E", fr: iso(new Date()), o: ultimoOrden(dest) + 1 };
+    regGuardar("VIVO", k, { f: "B", bm: "Migrado a cadáver", bf: iso(new Date()) }, `Pasa a ${LST[dest].n} (donador no apto)`, b => {
+      b.set(doc(db, "listas", dest), { items: { [kk]: nuevoReg } }, { merge: true });
+      b.set(doc(collection(db, "historial")), { pacienteId: `${dest}:${kk}`, nombre: r.n, accion: "Registrado (viene de donador vivo)", cambios: {}, por: S.user.email, fecha: serverTimestamp() });
+    });
+    sh.close();
+  };
+}
+
+function pasarAListos(L, k) {
+  const r = S.reg[L][k]; const t = telsDe(r.tel);
+  const ref = doc(collection(db, "pacientes"));
+  const est = {}; ESTUDIOS.forEach(([c]) => est[c] = "");
+  const p = { grupo: LST[L].g, nombre: r.n, fnac: r.fnac || "", nss: r.nss || "", agregado: "", tel1: t[0]?.d || "", tel2: t[1]?.d || "", noTx: "", etiologia: "", terapia: "",
+    estatus: "ACTIVO", motivo: "", fechaEstatus: iso(new Date()), revalorar: "", estudios: est, ultimoContacto: "", observaciones: r.obs ? r.obs.split("\n")[0] : "",
+    idCenatra: r.id || "", regL: L, regK: k, actualizado: serverTimestamp(), actualizadoPor: S.user.email };
+  regGuardar(L, k, { f: "L", pid: ref.id }, "Protocolo terminado → pasa a Listos", b => {
+    b.set(ref, p);
+    b.set(doc(collection(db, "historial")), { pacienteId: ref.id, nombre: r.n, accion: "Paciente agregado (protocolo terminado)", cambios: {}, por: S.user.email, fecha: serverTimestamp() });
+  });
+  toast("Ahora captura las fechas de sus estudios");
+  setTimeout(() => { const pp = S.pacientes.find(x => x.id === ref.id); if (pp) openForm(pp); }, 900);
+}
+
+// Carga inicial de las listas desde el archivo preparado a partir del Excel (solo administrador)
+async function importarListas(obj) {
+  if (S.rol !== "admin") return toast("Solo el administrador puede importar listas");
+  const ya = LISTAS.reduce((n, [L]) => n + Object.keys(S.reg[L] || {}).length, 0);
+  const nuevos = Object.values(obj.listas).reduce((n, it) => n + Object.keys(it).length, 0);
+  if (!confirm(`Se cargarán ${nuevos} registros en ${Object.keys(obj.listas).length} listas${ya ? ` (ya hay ${ya}; los que tengan la misma clave se reemplazan)` : ""} y se enlazarán ${obj.links?.length || 0} pacientes de Listos. ¿Continuar?`)) return;
+  const b = writeBatch(db);
+  for (const [L, items] of Object.entries(obj.listas)) b.set(doc(db, "listas", L), { items }, { merge: true });
+  const dg = s => String(s || "").replace(/\D/g, "");
+  let enl = 0;
+  for (const l of obj.links || []) {
+    const p = S.pacientes.find(x => (dg(l.nss).length >= 9 && dg(x.nss).startsWith(dg(l.nss).slice(0, 9))) || nrm(x.nombre) === nrm(l.nombre));
+    if (!p) continue; enl++;
+    const t = telsDe(l.telExcel);
+    const upd = { regL: l.regL, regK: l.regK, idCenatra: l.idCenatra || "", curp: l.curp || "", fechaRegistro: l.fechaRegistro || "" };
+    if (!p.tel1 && t[0]) upd.tel1 = t[0].d; if (!p.tel2 && t[1]) upd.tel2 = t[1].d;
+    b.update(doc(db, "pacientes", p.id), upd);
+  }
+  b.set(doc(collection(db, "historial")), { pacienteId: "listas", nombre: "Listas de espera", accion: `Carga inicial desde Excel LISTA DE ESPERA 2026 (${nuevos} registros, ${enl} pacientes enlazados)`, cambios: {}, por: S.user.email, fecha: serverTimestamp() });
+  try { await b.commit(); toast(`Listas cargadas: ${nuevos} registros · ${enl} enlazados`); } catch (e) { toast("Error: " + (e.code || e.message)); }
+}
+// ===================== FIN LISTAS DE ESPERA =====================
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
