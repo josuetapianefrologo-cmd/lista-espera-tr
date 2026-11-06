@@ -129,17 +129,21 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 
 // ---------- Catálogos ----------
 const GRUPOS = ["A+","A-","B+","B-","O+","O-","AB+","AB-"];
-const ESTATUS = ["COMPLETO","INCOMPLETO","CADUCADO","EN ACTUALIZACIÓN","NO LOCALIZADO","INACTIVO TEMPORAL","INACTIVO DEFINITIVO","TRASPLANTADO"];
+const ESTATUS = ["ACTIVO","DIFERIDO TEMPORAL","EN PROTOCOLO","BAJA DEFINITIVA","TRASPLANTADO"];
 const ESTATUS_INFO = {
-  "COMPLETO":"Protocolo completo y vigente. Elegible para oferta de órgano.",
-  "INCOMPLETO":"Falta ≥1 estudio o valoración.",
-  "CADUCADO":"≥1 estudio con vigencia vencida. Actualizar antes de ser elegible.",
-  "EN ACTUALIZACIÓN":"Ya se enviaron citas para actualizar estudios.",
-  "NO LOCALIZADO":"Se llamó y no contesta / número fuera de servicio.",
-  "INACTIVO TEMPORAL":"Contraindicación temporal. Capturar motivo y fecha para revalorar.",
-  "INACTIVO DEFINITIVO":"Contraindicación absoluta o baja definitiva.",
+  "ACTIVO":"Protocolo completo y aceptado. Puede recibir oferta de órgano hoy.",
+  "DIFERIDO TEMPORAL":"Sigue en lista pero por ahora NO recibe ofertas. Causa reversible: requiere motivo y fecha de revaloración.",
+  "EN PROTOCOLO":"Aún no completa su evaluación inicial; no está en lista activa.",
+  "BAJA DEFINITIVA":"Sale de la lista por causa no reversible (contraindicación, defunción, cambio de unidad, decisión del paciente).",
   "TRASPLANTADO":"Ya recibió trasplante; se conserva para registro."
 };
+const MOTIVOS_DIF = ["Actualización de protocolo","No localizado","Infección activa","Evento cardiovascular","Cirugía o trauma","Causa social / económica","Otro"];
+const MOTIVOS_BAJA = ["Contraindicación","Defunción","Cambio de unidad","Decisión del paciente","Trasplante de donador vivo","Otro"];
+// Estatus anteriores → nuevos (migración automática)
+const MIGRA = { "COMPLETO":["ACTIVO",""], "INCOMPLETO":["EN PROTOCOLO",""], "CADUCADO":["DIFERIDO TEMPORAL","Actualización de protocolo"],
+  "EN ACTUALIZACIÓN":["DIFERIDO TEMPORAL","Actualización de protocolo"], "NO LOCALIZADO":["DIFERIDO TEMPORAL","No localizado"],
+  "INACTIVO TEMPORAL":["DIFERIDO TEMPORAL","Otro"], "INACTIVO DEFINITIVO":["BAJA DEFINITIVA","Otro"] };
+const migrar = p => { const m = MIGRA[p.estatus]; return m ? { ...p, estatus: m[0], motivo: p.motivo || m[1] } : p; };
 const TERAPIAS = ["HD","DP","PREDIÁLISIS"];
 // Estudios: [clave, etiqueta, meses de vigencia (0 = no caduca), requerido]
 const ESTUDIOS = [
@@ -149,7 +153,7 @@ const ESTUDIOS = [
   ["valorado","Valorado (comité)",0,false]
 ];
 const CAMPOS_LABEL = {grupo:"Grupo",nombre:"Nombre",fnac:"Fecha nacimiento",nss:"NSS",agregado:"Agregado",tel1:"Tel 1",tel2:"Tel 2",noTx:"No. trasplante",
-  etiologia:"Etiología",terapia:"Terapia",estatus:"Estatus",fechaEstatus:"Fecha estatus",revalorar:"Revalorar el",ultimoContacto:"Último contacto",observaciones:"Observaciones"};
+  etiologia:"Etiología",terapia:"Terapia",estatus:"Estatus",motivo:"Motivo",fechaEstatus:"Fecha estatus",revalorar:"Revalorar el",ultimoContacto:"Último contacto",observaciones:"Observaciones"};
 ESTUDIOS.forEach(([k,l]) => CAMPOS_LABEL["estudios."+k] = l);
 
 // ---------- Fechas ----------
@@ -183,16 +187,15 @@ function protocolo(p) {
     if (e.vence && (!prox || e.vence < prox)) prox = e.vence;
   }
   let alerta;
-  if (p.estatus === "TRASPLANTADO" || p.estatus === "INACTIVO DEFINITIVO") alerta = "—";
-  else if (p.estatus === "INACTIVO TEMPORAL" && p.revalorar && parse(p.revalorar) <= hoy()) alerta = "REVALORAR";
+  if (p.estatus === "TRASPLANTADO" || p.estatus === "BAJA DEFINITIVA") alerta = "—";
+  else if (p.estatus === "DIFERIDO TEMPORAL" && p.revalorar && parse(p.revalorar) <= hoy()) alerta = "REVALORAR";
   else if (cad) alerta = "CADUCADO";
   else if (falt) alerta = "INCOMPLETO";
   else if (pronto) alerta = "POR VENCER";
   else alerta = "VIGENTE";
   return {cad, falt, prox, alerta};
 }
-const tagEstatus = e => ({"COMPLETO":"t-ok","INCOMPLETO":"t-warn","CADUCADO":"t-bad","EN ACTUALIZACIÓN":"t-info","NO LOCALIZADO":"t-purple",
-  "INACTIVO TEMPORAL":"t-gray","INACTIVO DEFINITIVO":"t-gray","TRASPLANTADO":"t-info"}[e] || "t-gray");
+const tagEstatus = e => ({"ACTIVO":"t-ok","DIFERIDO TEMPORAL":"t-warn","EN PROTOCOLO":"t-info","BAJA DEFINITIVA":"t-gray","TRASPLANTADO":"t-purple"}[e] || "t-gray");
 const tagAlerta = a => ({"VIGENTE":"t-ok","POR VENCER":"t-warn","INCOMPLETO":"t-warn","CADUCADO":"t-bad","REVALORAR":"t-purple"}[a] || "t-gray");
 const ORD_G = g => { const i = ["A+","B+","O+","AB+","A-","B-","O-","AB-"].indexOf(g); return i < 0 ? 99 : i; };
 
@@ -261,7 +264,19 @@ async function onUser(u) {
   const t = setTimeout(() => { if (first) $app.innerHTML = `<div class="empty">Sin conexión y sin datos guardados en este dispositivo. Conéctate una vez para descargar la lista.</div>`; }, 12000);
   S.unsub.push(onSnapshot(collection(db, "pacientes"), { includeMetadataChanges: true }, snap => {
     first = false; clearTimeout(t);
-    S.pacientes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    S.pacientes = snap.docs.map(d => migrar({ id: d.id, ...d.data() }));
+    if (S.rol === "admin" && !snap.metadata.fromCache && !S.migrado) {
+      S.migrado = true;
+      const viejos = snap.docs.filter(d => MIGRA[d.data().estatus]);
+      if (viejos.length) {
+        const b = writeBatch(db);
+        viejos.forEach(d => { const a = d.data(), n = migrar(a);
+          b.update(d.ref, { estatus: n.estatus, motivo: n.motivo });
+          b.set(doc(collection(db, "historial")), { pacienteId: d.id, nombre: a.nombre, accion: "Estatus actualizado a nueva terminología",
+            cambios: { estatus: [a.estatus, n.estatus], ...(n.motivo ? { motivo: ["", n.motivo] } : {}) }, por: S.user.email, fecha: serverTimestamp() }); });
+        b.commit().catch(() => {});
+      }
+    }
     S.pendientes = snap.metadata.hasPendingWrites;
     S.desdeCache = snap.metadata.fromCache;
     render();
@@ -302,7 +317,7 @@ function ptCard(p, conTel = false) {
     <div class="gb">${esc(p.grupo)}</div>
     <div class="info"><div class="name">${esc(p.nombre)}</div>
       <div class="meta">${[edad(p.fnac) !== "" ? edad(p.fnac) + " años" : "", p.terapia, p.noTx ? "Tx #" + p.noTx : ""].filter(Boolean).map(esc).join(" · ")}</div>
-      <div class="tags"><span class="tag ${tagEstatus(p.estatus)}">${esc(p.estatus || "SIN ESTATUS")}</span>
+      <div class="tags"><span class="tag ${tagEstatus(p.estatus)}">${esc(p.estatus || "SIN ESTATUS")}${p.motivo && /DIFERIDO|BAJA/.test(p.estatus) ? " · " + esc(p.motivo) : ""}</span>
         ${pr.alerta !== "—" ? `<span class="tag ${tagAlerta(pr.alerta)}">Protocolo: ${pr.alerta}</span>` : ""}
         ${pr.prox && pr.alerta !== "—" ? `<span class="tag t-gray">Vence ${fmtD(pr.prox)}</span>` : ""}</div>
       ${p.observaciones ? `<div class="meta" style="margin-top:6px">${esc(p.observaciones)}</div>` : ""}
@@ -312,12 +327,12 @@ function bindCards(root) { root.querySelectorAll(".card[data-id]").forEach(c => 
 const ordenar = arr => arr.sort((a,b) => ORD_G(a.grupo) - ORD_G(b.grupo) || a.nombre.localeCompare(b.nombre, "es"));
 
 function vElegibles(m) {
-  const el = ordenar(S.pacientes.filter(p => p.estatus === "COMPLETO"));
+  const el = ordenar(S.pacientes.filter(p => p.estatus === "ACTIVO"));
   const porG = {}; el.forEach(p => (porG[p.grupo] ||= []).push(p));
   const conCad = el.filter(p => protocolo(p).alerta === "CADUCADO").length;
-  m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes con estatus <b>COMPLETO</b>. Toca un teléfono para llamar.</div>
-    ${conCad ? `<div class="notice" style="background:var(--badbg);color:var(--bad)"><b>${conCad} de ${el.length}</b> tienen estudios caducados según sus fechas. Revisa su estatus antes de considerarlos para una oferta.</div>` : ""}
-    ${!el.length ? `<div class="empty">No hay pacientes con estatus COMPLETO.</div>` :
+  m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes <b>ACTIVOS</b> (pueden recibir oferta). Toca un teléfono para llamar.</div>
+    ${conCad ? `<div class="notice" style="background:var(--badbg);color:var(--bad)"><b>${conCad} de ${el.length}</b> tienen estudios caducados según sus fechas. Actualízalos o pásalos a DIFERIDO TEMPORAL.</div>` : ""}
+    ${!el.length ? `<div class="empty">No hay pacientes ACTIVOS.</div>` :
       Object.keys(porG).sort((a,b) => ORD_G(a)-ORD_G(b)).map(g => `<div class="sec">Grupo ${esc(g)} · ${porG[g].length}</div>${porG[g].map(p => ptCard(p, true)).join("")}`).join("")}`;
   bindCards(m);
 }
@@ -347,14 +362,14 @@ function vLista(m) {
 function vResumen(m) {
   const gs = GRUPOS.filter(g => S.pacientes.some(p => p.grupo === g));
   const cnt = (g, f) => S.pacientes.filter(p => (!g || p.grupo === g) && f(p)).length;
-  const activos = S.pacientes.filter(p => !["TRASPLANTADO","INACTIVO DEFINITIVO"].includes(p.estatus));
+  const activos = S.pacientes.filter(p => !["TRASPLANTADO","BAJA DEFINITIVA"].includes(p.estatus));
   const prox30 = activos.filter(p => { const pr = protocolo(p); return pr.prox && pr.prox >= hoy() && (pr.prox - hoy())/864e5 <= 30; });
-  const cols = ["COMPLETO","INCOMPLETO","CADUCADO","EN ACTUALIZACIÓN","NO LOCALIZADO","INACTIVO TEMPORAL","TRASPLANTADO"];
-  const abrev = {"EN ACTUALIZACIÓN":"ACTUAL.","NO LOCALIZADO":"NO LOC.","INACTIVO TEMPORAL":"INACT. T.","TRASPLANTADO":"TX","INCOMPLETO":"INCOMP.","COMPLETO":"COMP.","CADUCADO":"CAD."};
+  const cols = ["ACTIVO","DIFERIDO TEMPORAL","EN PROTOCOLO","BAJA DEFINITIVA","TRASPLANTADO"];
+  const abrev = {"ACTIVO":"ACTIVO","DIFERIDO TEMPORAL":"DIFERIDO","EN PROTOCOLO":"PROTOC.","BAJA DEFINITIVA":"BAJA","TRASPLANTADO":"TX"};
   m.innerHTML = `<div class="stats">
-      <div class="stat"><b>${activos.length}</b><small>En lista (activos)</small></div>
-      <div class="stat"><b style="color:var(--ok)">${cnt("", p => p.estatus === "COMPLETO")}</b><small>Elegibles</small></div>
-      <div class="stat"><b style="color:var(--bad)">${activos.filter(p => protocolo(p).alerta === "CADUCADO").length}</b><small>Con estudios caducados</small></div>
+      <div class="stat"><b style="color:var(--ok)">${cnt("", p => p.estatus === "ACTIVO")}</b><small>Activos (reciben oferta)</small></div>
+      <div class="stat"><b style="color:var(--warn)">${cnt("", p => p.estatus === "DIFERIDO TEMPORAL")}</b><small>Diferidos temporales</small></div>
+      <div class="stat"><b style="color:var(--bad)">${activos.filter(p => protocolo(p).alerta === "CADUCADO").length}</b><small>Con estudios caducados (sin bajas ni Tx)</small></div>
       <div class="stat"><b style="color:var(--warn)">${prox30.length}</b><small>Vencen en 30 días</small></div></div>
     <div class="sec">Por grupo y estatus</div>
     <div style="overflow-x:auto"><table class="res"><tr><th>Grupo</th><th>Total</th>${cols.map(c => `<th>${abrev[c]}</th>`).join("")}</tr>
@@ -363,7 +378,7 @@ function vResumen(m) {
     ${prox30.length ? `<div class="sec">Estudios que vencen en los próximos 30 días</div>${ordenar(prox30).map(p => ptCard(p)).join("")}` : ""}
     <div class="sec">Leyenda de estatus</div>
     <div class="card">${ESTATUS.map(e => `<div style="margin-bottom:8px"><span class="tag ${tagEstatus(e)}">${e}</span> <span style="font-size:13px;color:var(--muted)">${ESTATUS_INFO[e]}</span></div>`).join("")}
-      <div style="font-size:13px;color:var(--muted);margin-top:8px"><b>Protocolo</b> se calcula solo: Cardiología, ECOTT, Serologías, PPD y Otorrino caducan a los 6 meses.</div></div>`;
+      <div style="font-size:13px;color:var(--muted);margin-top:8px"><b>Estatus</b> = decisión del equipo (¿puede recibir oferta hoy?). <b>Protocolo</b> = cálculo automático por fechas (¿sus estudios siguen vigentes?): Cardiología, ECOTT, Serologías, PPD y Otorrino caducan a los 6 meses. Un ACTIVO con protocolo CADUCADO se marca en rojo para actualizarlo o diferirlo.</div></div>`;
   bindCards(m);
 }
 
@@ -429,7 +444,7 @@ function openFicha(id) {
     return `<div class="st tag ${cls}" style="border-radius:10px"><b>${l}${mes ? ` <span style="font-weight:400">(${mes} m)</span>` : ""}</b><span>${e.txt}</span></div>`; }).join("");
   const kv = [["Edad", edad(p.fnac) !== "" ? edad(p.fnac) + " años" : "—"],["Nacimiento", fmt(p.fnac)],["NSS", p.nss],["Agregado", p.agregado],
     ["Terapia", p.terapia],["No. trasplante", p.noTx],["Etiología", p.etiologia],["Fecha estatus", fmt(p.fechaEstatus)],
-    ...(p.estatus === "INACTIVO TEMPORAL" ? [["Revalorar el", fmt(p.revalorar)]] : []),["Último contacto", fmt(p.ultimoContacto)]]
+    ...(/DIFERIDO|BAJA/.test(p.estatus) ? [["Motivo", p.motivo]] : []),...(p.estatus === "DIFERIDO TEMPORAL" ? [["Revalorar el", fmt(p.revalorar)]] : []),["Último contacto", fmt(p.ultimoContacto)]]
     .map(([k,v]) => `<div><small>${k}</small>${esc(v || "—")}</div>`).join("");
   const sh = sheet(esc(p.nombre), `
     <div class="tags" style="margin:0 0 10px"><span class="tag t-info">Grupo ${esc(p.grupo)}</span><span class="tag ${tagEstatus(p.estatus)}">${esc(p.estatus)}</span>
@@ -479,10 +494,13 @@ function openContacto(p) {
     <label class="f">Fecha<input type="date" id="cF" value="${iso(new Date())}"></label>
     <label class="f">Resultado / acuerdo<textarea id="cO" rows="3" placeholder="Ej. cita cardio 15/11, no contesta, cambió de teléfono">${esc(p.observaciones || "")}</textarea></label>
     <label class="f">Estatus<select id="cE">${ESTATUS.map(e => `<option ${e===p.estatus?"selected":""}>${e}</option>`).join("")}</select></label>
+    <label class="f">Motivo (si es diferido o baja)<select id="cM"><option value="">—</option>${[...MOTIVOS_DIF, ...MOTIVOS_BAJA.filter(x => !MOTIVOS_DIF.includes(x))].map(x => `<option ${x===p.motivo?"selected":""}>${x}</option>`).join("")}</select></label>
     <button class="btn pri block" id="cG">Guardar</button>`);
   sh.el.querySelector("#cG").onclick = async () => {
     const est = sh.el.querySelector("#cE").value;
-    const n = { ...p, ultimoContacto: sh.el.querySelector("#cF").value, observaciones: sh.el.querySelector("#cO").value.trim(), estatus: est,
+    const mot = sh.el.querySelector("#cM").value;
+    if (/DIFERIDO|BAJA/.test(est) && !mot) return toast("Elige el motivo");
+    const n = { ...p, ultimoContacto: sh.el.querySelector("#cF").value, observaciones: sh.el.querySelector("#cO").value.trim(), estatus: est, motivo: /DIFERIDO|BAJA/.test(est) ? mot : "",
       fechaEstatus: est !== p.estatus ? iso(new Date()) : (p.fechaEstatus || "") };
     if (await guardar(p.id, n, "Llamada registrada")) sh.close();
   };
@@ -490,7 +508,7 @@ function openContacto(p) {
 
 function openForm(p) {
   const nuevo = !p;
-  p = p ? structuredClone({ ...p, estudios: { ...(p.estudios || {}) } }) : { grupo:"", nombre:"", estatus:"INCOMPLETO", terapia:"", estudios:{} };
+  p = p ? structuredClone({ ...p, estudios: { ...(p.estudios || {}) } }) : { grupo:"", nombre:"", estatus:"EN PROTOCOLO", terapia:"", estudios:{} };
   const inp = (k, l, t = "text", extra = "") => `<label class="f">${l}<input type="${t}" data-k="${k}" value="${esc(p[k] || "")}" ${extra}></label>`;
   const sel = (k, l, opts) => `<label class="f">${l}<select data-k="${k}"><option value="">—</option>${opts.map(o => `<option ${o===p[k]?"selected":""}>${o}</option>`).join("")}</select></label>`;
   const estF = ESTUDIOS.map(([k,l,mes]) => { const v = p.estudios[k] || ""; return `<label class="f">${l}${mes ? ` (caduca ${mes} m)` : ""}
@@ -498,18 +516,19 @@ function openForm(p) {
     <span class="na"><input type="checkbox" data-na="${k}" ${v === "NA" ? "checked" : ""}> No aplica</span></label>`; }).join("");
   const sh = sheet(nuevo ? "Nuevo paciente" : "Editar paciente", `
     <div class="grid2">${sel("grupo","Grupo sanguíneo *",GRUPOS)}${sel("estatus","Estatus *",ESTATUS)}</div>
+    <label class="f">Motivo (obligatorio si es DIFERIDO o BAJA)<select data-k="motivo"><option value="">—</option>${[...MOTIVOS_DIF, ...MOTIVOS_BAJA.filter(x => !MOTIVOS_DIF.includes(x))].map(o => `<option ${o===p.motivo?"selected":""}>${o}</option>`).join("")}</select></label>
     ${inp("nombre","Nombre completo *")}
     <div class="grid2">${inp("fnac","Fecha de nacimiento","date")}${inp("nss","NSS","text",'inputmode="numeric"')}
       ${inp("agregado","Agregado")}${sel("terapia","Terapia sustitutiva",TERAPIAS)}
       ${inp("tel1","Teléfono 1","tel")}${inp("tel2","Teléfono 2","tel")}
       ${inp("noTx","No. trasplante","text",'inputmode="numeric"')}${inp("etiologia","Etiología")}
-      ${inp("fechaEstatus","Fecha de estatus","date")}${inp("revalorar","Revalorar el (inactivo temporal)","date")}
+      ${inp("fechaEstatus","Fecha de estatus","date")}${inp("revalorar","Revalorar el (si es diferido)","date")}
       ${inp("ultimoContacto","Último contacto","date")}</div>
     <label class="f">Observaciones<textarea data-k="observaciones" rows="3">${esc(p.observaciones || "")}</textarea></label>
     <div class="sec">Estudios (fecha de realización)</div><div class="grid2">${estF}</div>
     <button class="btn pri block" id="fG" style="margin-top:8px">${nuevo ? "Agregar paciente" : "Guardar cambios"}</button>
     ${!nuevo && S.rol === "admin" ? `<button class="btn danger block" id="fDel" style="margin-top:10px">Eliminar paciente</button>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">Sugerencia: para bajas usa el estatus INACTIVO DEFINITIVO en vez de eliminar.</div>` : ""}`);
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Sugerencia: para bajas usa el estatus BAJA DEFINITIVA en vez de eliminar.</div>` : ""}`);
   const el = sh.el;
   el.querySelectorAll("[data-na]").forEach(c => c.onchange = () => { const d = el.querySelector(`[data-e="${c.dataset.na}"]`); d.disabled = c.checked; if (c.checked) d.value = ""; });
   el.querySelector("#fG").onclick = async () => {
@@ -518,6 +537,8 @@ function openForm(p) {
     el.querySelectorAll("[data-e]").forEach(i => { const k = i.dataset.e; n.estudios[k] = el.querySelector(`[data-na="${k}"]`).checked ? "NA" : i.value; });
     n.nombre = n.nombre.toUpperCase();
     if (!n.nombre || !n.grupo || !n.estatus) return toast("Faltan nombre, grupo o estatus");
+    if (/DIFERIDO|BAJA/.test(n.estatus) && !n.motivo) return toast("Elige el motivo del diferimiento o baja");
+    if (!/DIFERIDO|BAJA/.test(n.estatus)) n.motivo = "";
     const dup = S.pacientes.find(x => x.nombre === n.nombre && x.id !== p.id);
     if (dup && !confirm("Ya existe un paciente con ese nombre. ¿Guardar de todos modos?")) return;
     if (!nuevo && n.estatus !== p.estatus && !n.fechaEstatus) n.fechaEstatus = iso(new Date());
@@ -539,7 +560,7 @@ function descargar(nombre, contenido, tipo) {
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([contenido], { type: tipo })); a.download = nombre; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 function exportCSV() {
-  const cols = ["grupo","nombre","fnac","nss","agregado","tel1","tel2","noTx","etiologia","terapia","estatus","fechaEstatus","revalorar"];
+  const cols = ["grupo","nombre","fnac","nss","agregado","tel1","tel2","noTx","etiologia","terapia","estatus","motivo","fechaEstatus","revalorar"];
   const head = [...cols.map(c => CAMPOS_LABEL[c]), "Alerta protocolo", "Próx. vencimiento", ...ESTUDIOS.map(e => e[1]), "Último contacto", "Observaciones"];
   const q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
   const rows = ordenar([...S.pacientes]).map(p => { const pr = protocolo(p);
@@ -557,7 +578,7 @@ async function importar(ev) {
     const b = writeBatch(db);
     for (const p of nuevos.slice(i, i + 200)) {
       const ref = doc(collection(db, "pacientes"));
-      const n = { ...p, nombre: p.nombre.trim().toUpperCase(), estudios: p.estudios || {}, actualizado: serverTimestamp(), actualizadoPor: S.user.email };
+      const n = { ...migrar(p), nombre: p.nombre.trim().toUpperCase(), estudios: p.estudios || {}, actualizado: serverTimestamp(), actualizadoPor: S.user.email };
       b.set(ref, n);
       b.set(doc(collection(db, "historial")), { pacienteId: ref.id, nombre: n.nombre, accion: "Importado", cambios: {}, por: S.user.email, fecha: serverTimestamp() });
     }
