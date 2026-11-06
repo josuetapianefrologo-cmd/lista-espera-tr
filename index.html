@@ -65,7 +65,7 @@ nav.tabs svg{width:22px;height:22px}
 .btn.block{width:100%}
 .fab{position:fixed;right:18px;bottom:calc(78px + var(--safe-b));z-index:21;width:54px;height:54px;border-radius:50%;border:0;background:var(--navy);color:#fff;font-size:28px;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer}
 .sheet-bg{position:fixed;inset:0;background:rgba(10,15,25,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:var(--bg);width:100%;max-width:720px;max-height:94vh;overflow:auto;border-radius:18px 18px 0 0;padding:0 0 calc(16px + var(--safe-b))}
+.sheet{background:var(--bg);width:100%;max-width:720px;max-height:86vh;max-height:calc(100dvh - 20px);overflow:auto;overscroll-behavior:contain;border-radius:18px 18px 0 0;padding:0 0 calc(16px + var(--safe-b))}
 @media (min-width:760px){.sheet-bg{align-items:center}.sheet{border-radius:18px;max-height:90vh}}
 .sh-head{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;gap:10px;z-index:2}
 .sh-head b{flex:1;font-size:16px}
@@ -285,6 +285,11 @@ async function onUser(u) {
 }
 addEventListener("online", () => { S.online = true; render(); });
 addEventListener("offline", () => { S.online = false; render(); });
+addEventListener("popstate", () => {
+  if (S.popWait) { const r = S.popWait; S.popWait = null; r(); return; }
+  const abiertas = document.querySelectorAll(".sheet-bg"); const top = abiertas[abiertas.length - 1];
+  if (top && top.__close) top.__close();
+});
 
 // ---------- Render principal ----------
 function render() {
@@ -431,8 +436,17 @@ function vAjustes(m) {
 function sheet(titulo, body, acciones = "") {
   const bg = document.createElement("div"); bg.className = "sheet-bg";
   bg.innerHTML = `<div class="sheet"><div class="sh-head"><b>${titulo}</b>${acciones}<button class="x" aria-label="Cerrar">×</button></div><div class="sh-body">${body}</div></div>`;
-  const close = () => { bg.remove(); document.body.style.overflow = ""; };
-  bg.querySelector(".x").onclick = close; bg.onclick = e => { if (e.target === bg) close(); };
+  // Cada ventana agrega una entrada al historial: deslizar "atrás" (iPhone) o el botón atrás (Android) la cierra.
+  const sid = Date.now() + Math.random();
+  history.pushState({ sheet: sid }, "");
+  const close = () => new Promise(res => {
+    if (!bg.isConnected) return res();
+    bg.remove(); if (!document.querySelector(".sheet-bg")) document.body.style.overflow = "";
+    try { bg.__onClose && bg.__onClose(); } catch {}
+    if (history.state && history.state.sheet === sid) { S.popWait = res; history.back(); } else res();
+  });
+  bg.__close = close;
+  bg.querySelector(".x").onclick = () => close(); bg.onclick = e => { if (e.target === bg) close(); };
   document.body.appendChild(bg); document.body.style.overflow = "hidden";
   return { el: bg, close };
 }
@@ -460,11 +474,10 @@ function openFicha(id) {
     const rows = snap.docs.map(d => d.data()).sort((a,b) => (b.fecha?.seconds||9e9) - (a.fecha?.seconds||9e9));
     const hp = sh.el.querySelector("#hp"); if (hp) hp.innerHTML = rows.length ? rows.map(histItem).join("") : `<div style="color:var(--muted);font-size:13px">Sin cambios registrados desde que se usa la app.</div>`;
   }, () => {});
-  const oldClose = sh.close; sh.el.querySelector(".x").onclick = () => { un(); oldClose(); };
-  sh.el.onclick = e => { if (e.target === sh.el) { un(); oldClose(); } };
+  sh.el.__onClose = un;
   if (puedeEditar()) {
-    sh.el.querySelector("#bEd").onclick = () => { un(); oldClose(); openForm(p); };
-    sh.el.querySelector("#bCont").onclick = () => { un(); oldClose(); openContacto(p); };
+    sh.el.querySelector("#bEd").onclick = () => sh.close().then(() => openForm(p));
+    sh.el.querySelector("#bCont").onclick = () => sh.close().then(() => openContacto(p));
   }
 }
 
