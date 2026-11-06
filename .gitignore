@@ -1,0 +1,5 @@
+# Nunca subir datos de pacientes
+pacientes*.json
+respaldo*.json
+lista_espera_respaldo*.json
+*.csv
