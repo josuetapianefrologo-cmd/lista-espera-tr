@@ -98,6 +98,12 @@ textarea{resize:vertical}
 input:not([type]),input[type=text],input[type=search],input[type=tel],textarea{text-transform:uppercase}
 input[type=search]::placeholder,textarea::placeholder,input::placeholder{text-transform:none}
 .chip-h{border-style:dashed;color:var(--gray)}
+.cb-wrap{position:relative}
+.cb-wrap input{padding-right:40px!important}
+.cb-btn{position:absolute;right:4px;top:8px;width:34px;height:34px;border:0;background:none;color:var(--muted);font-size:16px;cursor:pointer}
+.cb-list{position:absolute;left:0;right:0;top:100%;z-index:60;background:#fff;border:1px solid #c9ced8;border-radius:10px;box-shadow:0 8px 24px rgba(16,24,40,.18);max-height:260px;overflow:auto;margin-top:3px;color:var(--ink)}
+.cb-list div{padding:9px 12px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--line)}
+.cb-list div:hover,.cb-list div.on{background:var(--infobg);color:var(--info)}
 .c-baja-h td{background:#f4f5f7}
 /* ---- Vista de computadora ---- */
 body.pc main{max-width:none;padding:10px 18px 30px}
@@ -842,7 +848,7 @@ function regForm(L, k) {
   let lista = L; const vivo = () => lista === "VIVO";
   const campos = () => [["n","Nombre completo *"],["id","ID CENATRA"],["nss","NSS"],["curp","CURP"],["fnac","Fecha de nacimiento","date"],["res","Residencia"],
     ...(vivo() ? [["gpo","Grupo sanguíneo"],["sx","Sexo"],["mod","Modalidad (HD/DP…)"],["adsc","Adscripción"],["don","Donador"],["par","Parentesco"]] : []),
-    ["mail","Correo","email"],["est","Estatus (texto libre)"],["nota","Aviso destacado (ej. VERIFICAR GRUPO)"]];
+    ["mail","Correo","email"],["est","Estatus (escribe o elige de la lista)"],["nota","Aviso destacado (ej. VERIFICAR GRUPO)"]];
   const html = () => `${nuevo ? `<label class="f">Lista *<select id="rl">${LISTAS.map(([id,,n]) => `<option value="${id}" ${id===lista?"selected":""}>${n}</option>`).join("")}</select></label>
       <div class="notice" style="background:var(--infobg);color:var(--info)">El nuevo registro queda <b>al final</b> de la lista, con fecha de hoy.</div>` : ""}
     <div class="grid2">${campos().map(([c,l,t]) => `<label class="f">${l}<input ${t ? `type="${t}"` : ""} data-c="${c}" value="${esc(r[c] || "")}"></label>`).join("")}</div>
@@ -851,10 +857,12 @@ function regForm(L, k) {
     <button class="btn pri block" id="rg">${nuevo ? "Registrar en lista" : "Guardar cambios"}</button>`;
   const sh = sheet(nuevo ? "Nuevo registro en lista" : "Editar registro", html());
   const bind = () => {
+    comboEst(sh.el.querySelector('[data-c="est"]'));
     const sel = sh.el.querySelector("#rl"); if (sel) sel.onchange = () => { sh.el.querySelectorAll("[data-c]").forEach(i => r[i.dataset.c] = i.value); lista = sel.value; sh.el.querySelector(".sh-body").innerHTML = html(); bind(); };
     sh.el.querySelector("#rg").onclick = () => {
       const v = {}; sh.el.querySelectorAll("[data-c]").forEach(i => v[i.dataset.c] = i.value.trim());
       for (const c in v) if (c !== "mail") v[c] = v[c].toUpperCase(); if (!v.n) return toast("Falta el nombre");
+      if (!estValido(v.est)) return toast("Elige el estatus de la lista; los detalles van en Observaciones");
       if (nuevo) {
         const dup = todos().find(x => x.f !== "B" && ((v.id && x.id === v.id) || nrm(x.n) === nrm(v.n)));
         if (dup && !confirm(`Ya existe ${dup.n} en ${LST[dup.L].n} (lugar ${lugar(dup.L, dup.k) || "—"}). ¿Registrar de todos modos?`)) return;
@@ -875,11 +883,13 @@ function regNota(L, k) {
   const sh = sheet("Registrar llamada / nota", `<div style="margin-bottom:10px"><b>${esc(r.n)}</b></div>
     <label class="f">Fecha<input type="date" id="nf" value="${iso(new Date())}"></label>
     <label class="f">Qué pasó<textarea id="nt" rows="3" placeholder="Ej. no contesta · se cita 15/11 · se le informa su lugar"></textarea></label>
-    <label class="f">Estatus (texto, opcional)<input id="ne" value="${esc(r.est || "")}" placeholder="Ej. NO LOCALIZABLE, CITADO, CONTRAINDICADO TEMPORAL"></label>
+    <label class="f">Estatus (escribe o elige de la lista)<input id="ne" value="${esc(r.est || "")}" placeholder="Ej. no localizable, citado…"></label>
     <button class="btn pri block" id="ng">Guardar</button>`);
+  comboEst(sh.el.querySelector("#ne"));
   sh.el.querySelector("#ng").onclick = () => {
     const t = sh.el.querySelector("#nt").value.trim(); const f = sh.el.querySelector("#nf").value;
     if (!t) return toast("Escribe la nota");
+    if (!estValido(sh.el.querySelector("#ne").value.trim().toUpperCase())) return toast("Elige el estatus de la lista; los detalles van en la nota");
     const [y,mo,d] = f.split("-"); const linea = `${d}/${mo}/${y} ${t}`;
     regGuardar(L, k, { obs: r.obs ? `${linea}\n${r.obs}` : linea, est: sh.el.querySelector("#ne").value.trim() }, "Llamada / nota");
     sh.close();
@@ -1151,6 +1161,36 @@ function regLogDescarga() {
   addDoc(collection(db, "historial"), { pacienteId: "listas", nombre: "Listas de espera", accion: "Descarga de Excel completo", cambios: {}, por: S.user.email, fecha: serverTimestamp() }).catch(() => {});
 }
 // ===================== FIN BAJAS HISTÓRICAS =====================
+// ===================== ESTATUS DE LA LISTA: catálogo con buscador =====================
+const EST_CAT = ["LLAMAR","CITADO","NO CONTESTA","NO LOCALIZABLE","NO SE PRESENTÓ","CONTRAINDICADO TEMPORAL","CONTRAINDICADO","VERIFICAR GRUPO / RH","VERIFICAR","EN PROTOCOLO","EN PROTOCOLO DE VIVO","PROTOCOLO COMPLETO","PROTOCOLO VENCIDO","INCUMPLIMIENTO DE PROTOCOLO","SIN DONADOR","PASA A DVR","VIENE DE DVR","ACTUALIZAR DATOS","NO DESEA TRASPLANTE","AÚN NO REQUIERE TRASPLANTE","OTRO"];
+function comboEst(inp) {
+  if (!inp || inp.__combo) return; inp.__combo = true; inp.autocomplete = "off";
+  const wrap = document.createElement("div"); wrap.className = "cb-wrap"; inp.parentNode.insertBefore(wrap, inp); wrap.appendChild(inp);
+  const list = document.createElement("div"); list.className = "cb-list"; list.hidden = true; wrap.appendChild(list);
+  const btn = document.createElement("button"); btn.type = "button"; btn.className = "cb-btn"; btn.textContent = "▾"; btn.tabIndex = -1; wrap.appendChild(btn);
+  let sel = 0, ops = [];
+  const pinta = (todo) => {
+    const q = nrm(inp.value).trim(); ops = ["", ...EST_CAT].filter(o => todo || !q || nrm(o).includes(q));
+    if (sel >= ops.length) sel = 0;
+    list.innerHTML = ops.map((o, i) => `<div data-i="${i}" class="${i === sel ? "on" : ""}">${o ? esc(o) : "<i style='color:var(--muted)'>(sin estatus)</i>"}</div>`).join("") || `<div style="color:var(--muted)">Sin coincidencias · elige de la lista</div>`;
+    list.hidden = false;
+  };
+  const elige = i => { if (ops[i] === undefined) return; inp.value = ops[i]; list.hidden = true; inp.dispatchEvent(new Event("change")); };
+  inp.addEventListener("focus", () => { sel = 0; pinta(true); });
+  inp.addEventListener("input", () => { sel = 0; pinta(false); });
+  inp.addEventListener("blur", () => setTimeout(() => { list.hidden = true; }, 150));
+  inp.addEventListener("keydown", e => {
+    if (list.hidden) return;
+    if (e.key === "ArrowDown") { sel = Math.min(sel + 1, ops.length - 1); pinta(false); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { sel = Math.max(sel - 1, 0); pinta(false); e.preventDefault(); }
+    else if (e.key === "Enter") { elige(sel); e.preventDefault(); }
+    else if (e.key === "Escape") { list.hidden = true; }
+  });
+  list.addEventListener("mousedown", e => { const d = e.target.closest("[data-i]"); if (d) { e.preventDefault(); elige(+d.dataset.i); } });
+  btn.addEventListener("mousedown", e => { e.preventDefault(); if (list.hidden) { inp.focus(); pinta(true); } else list.hidden = true; });
+}
+const estValido = v => !v || EST_CAT.includes(v);
+// ===================== FIN ESTATUS =====================
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
