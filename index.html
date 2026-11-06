@@ -18,11 +18,7 @@
   --info:#1d4ed8;--infobg:#e3ebfd;--gray:#475467;--graybg:#eef0f4;--purple:#6d28d9;--purplebg:#efe7fd;
   --radius:14px;--safe-b:env(safe-area-inset-bottom,0px);
 }
-@media (prefers-color-scheme:dark){:root{
-  --ink:#e8ecf3;--muted:#98a2b3;--line:#2a3345;--bg:#0f1520;--card:#171f2e;
-  --okbg:#10301f;--warnbg:#3a2a0c;--badbg:#3b1512;--infobg:#142447;--graybg:#232c3c;--purplebg:#2a1a47;
-  --ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--info:#93b4ff;--gray:#b6bfcc;--purple:#c4a6ff;
-}}
+:root{color-scheme:light}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -37,7 +33,6 @@ main{max-width:960px;margin:0 auto;padding:12px 16px calc(84px + var(--safe-b))}
 nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:20;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:var(--safe-b)}
 nav.tabs button{flex:1;border:0;background:none;padding:9px 4px 8px;color:var(--muted);font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer}
 nav.tabs button.on{color:var(--navy2);font-weight:600}
-@media (prefers-color-scheme:dark){nav.tabs button.on{color:#9db8ff}}
 nav.tabs svg{width:22px;height:22px}
 .search{display:flex;gap:8px;margin-bottom:10px}
 .search input{flex:1;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
@@ -100,6 +95,41 @@ table.res th:first-child,table.res td:first-child{text-align:left;padding-left:1
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + var(--safe-b));background:#111827;color:#fff;padding:10px 16px;border-radius:12px;z-index:60;font-size:14px}
 .row{display:flex;gap:8px;flex-wrap:wrap}
 textarea{resize:vertical}
+/* ---- Vista de computadora ---- */
+body.pc main{max-width:none;padding:10px 18px 30px}
+body.pc .hrow{max-width:none}
+body.pc header{padding:8px 18px}
+.htabs{display:flex;gap:4px;margin-left:12px}
+.htabs button{border:0;background:rgba(255,255,255,.1);color:#fff;padding:7px 14px;border-radius:9px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:14px}
+.htabs button svg{width:17px;height:17px}
+.htabs button.on{background:#fff;color:var(--navy);font-weight:700}
+body.pc .fab{bottom:24px}
+.pc-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.pc-bar .vb{font-size:13px;color:var(--muted);white-space:nowrap}
+.ley{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--muted);margin-left:auto}
+.ley span{display:flex;align-items:center;gap:4px}.ley i{width:14px;height:14px;border:1px solid #b9c0cc;border-radius:3px;display:inline-block;background:#fff}
+.tbl-wrap{overflow:auto;max-height:calc(100vh - 210px);border:1px solid #c9ced8;border-radius:8px;background:#fff}
+table.xl{border-collapse:collapse;width:100%;min-width:1500px;table-layout:fixed;font-size:12.5px;line-height:1.3}
+table.xl th{position:sticky;top:0;z-index:1;background:var(--navy);color:#fff;font-weight:600;font-size:11px;padding:7px 5px;text-align:left;border-right:1px solid #2c4a7c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.xl td{border:1px solid #d5dae2;padding:4px 6px;vertical-align:top}
+table.xl tbody tr{cursor:pointer}
+table.xl tbody tr:hover td{outline:1px solid #7a8aa6;filter:brightness(.96)}
+table.xl td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+table.xl td.nw{white-space:nowrap;text-overflow:ellipsis}
+table.xl td{overflow:hidden;overflow-wrap:anywhere}
+table.xl td.nom{font-weight:600}
+table.xl td .cl{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+table.xl td.tel .cl,table.xl td.obs .cl{font-size:11.5px}
+table.xl tbody tr:hover .cl{-webkit-line-clamp:12}
+.c-pro td,.ley i.c-pro{background:#fff59d}
+.c-ok td,.ley i.c-ok{background:#a8e0a0}
+.c-ver td,.ley i.c-ver{background:#ffc4f1}
+.c-ci td,.ley i.c-ci{background:#d9d9d9}
+.c-nl td,.ley i.c-nl{background:#9eebf3}
+.c-baja td{background:#f2f3f5;color:#8a93a3;text-decoration:line-through}.ley i.c-baja{background:#f2f3f5}
+td.d-bad{color:#b42318;font-weight:700}td.d-warn{color:#a15c00;font-weight:700}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:8px}
+.cgrid .card{margin:0}
 </style>
 </head>
 <body>
@@ -299,13 +329,16 @@ function render() {
   const scroll = scrollY;
   const syncTxt = !S.online ? "Sin conexión · guardado en el equipo" : S.pendientes ? "Sincronizando…" : "Sincronizado";
   const tabs = [["elegibles","Elegibles",I.star],["lista","Listos",I.list],["protocolo","Protocolo",I.prot],["espera","Espera",I.fila],["mas","Más",I.mas]];
+  const pc = PC(); document.body.classList.toggle("pc", pc);
+  const tabBtns = tabs.map(([k,l,ic]) => `<button data-tab="${k}" class="${S.tab===k?"on":""}">${ic}${l}</button>`).join("");
   $app.innerHTML = `
-  <header><div class="hrow"><div class="htitle"><b>Lista de Espera TR</b><small>${esc(S.user.email)} · ${S.rol === "lector" ? "solo consulta" : S.rol}</small></div>
+  <header><div class="hrow"><div class="htitle" ${pc ? 'style="flex:0 0 auto"' : ""}><b>Lista de Espera TR</b><small>${esc(S.user.email)} · ${S.rol === "lector" ? "solo consulta" : S.rol}</small></div>
+    ${pc ? `<div class="htabs">${tabBtns}</div><div style="flex:1"></div>` : ""}
     <span class="sync ${!S.online ? "off" : ""}">${syncTxt}</span></div></header>
   <main id="main"></main>
-  ${puedeEditar() && ["lista","elegibles","espera"].includes(S.tab) ? `<button class="fab" id="fab" aria-label="Nuevo">+</button>` : ""}
-  <nav class="tabs">${tabs.map(([k,l,ic]) => `<button data-tab="${k}" class="${S.tab===k?"on":""}">${ic}${l}</button>`).join("")}</nav>`;
-  document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); scrollTo(0,0); });
+  ${puedeEditar() && ["lista","elegibles"].concat(pc ? [] : ["espera"]).includes(S.tab) ? `<button class="fab" id="fab" aria-label="Nuevo">+</button>` : ""}
+  ${pc ? "" : `<nav class="tabs">${tabBtns}</nav>`}`;
+  document.querySelectorAll("nav.tabs button, .htabs button").forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); scrollTo(0,0); });
   const fab = document.getElementById("fab"); if (fab) fab.onclick = () => S.tab === "espera" ? regForm(S.q2 ? S.lst : S.lst, null) : openForm(null);
   const m = document.getElementById("main");
   ({ elegibles: vElegibles, lista: vLista, protocolo: vProtocolo, espera: vEspera, mas: vMas })[S.tab](m);
@@ -339,7 +372,7 @@ function vElegibles(m) {
   m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes <b>ACTIVOS</b> (pueden recibir oferta). Toca un teléfono para llamar.</div>
     ${conCad ? `<div class="notice" style="background:var(--badbg);color:var(--bad)"><b>${conCad} de ${el.length}</b> tienen estudios caducados según sus fechas. Actualízalos o pásalos a DIFERIDO TEMPORAL.</div>` : ""}
     ${!el.length ? `<div class="empty">No hay pacientes ACTIVOS.</div>` :
-      Object.keys(porG).sort((a,b) => ORD_G(a)-ORD_G(b)).map(g => `<div class="sec">Grupo ${esc(g)} · ${porG[g].length}</div>${porG[g].map(p => ptCard(p, true)).join("")}`).join("")}`;
+      Object.keys(porG).sort((a,b) => ORD_G(a)-ORD_G(b)).map(g => `<div class="sec">Grupo ${esc(g)} · ${porG[g].length}</div><div class="${PC() ? "cgrid" : ""}">${porG[g].map(p => ptCard(p, true)).join("")}</div>`).join("")}`;
   bindCards(m);
 }
 
@@ -355,14 +388,14 @@ function vLista(m) {
     <div class="chips">${["", ...gruposUsados].map(g => `<button class="chip ${S.fGrupo===g?"on":""}" data-g="${g}">${g || "Todos"}</button>`).join("")}</div>
     <div class="chips">${["", ...ESTATUS].map(e => `<button class="chip ${S.fEstatus===e?"on":""}" data-e="${e}">${e || "Cualquier estatus"}</button>`).join("")}</div>
     <div class="chips">${["","CADUCADO","POR VENCER","INCOMPLETO","VIGENTE","REVALORAR"].map(a => `<button class="chip ${S.fAlerta===a?"on":""}" data-a="${a}">${a ? "Protocolo: "+a : "Cualquier alerta"}</button>`).join("")}</div>
-    <div class="sec">${arr.length} paciente${arr.length===1?"":"s"}</div>
-    ${arr.length ? arr.map(p => ptCard(p)).join("") : `<div class="empty">Sin resultados.</div>`}`;
+    <div class="pc-bar"><div class="sec" style="margin:4px 2px">${arr.length} paciente${arr.length===1?"":"s"}</div>${PC() ? leyenda(["c-ok","c-pro","c-ci","c-nl","c-baja"]).replace("Protocolo completo / Listos","Activo") .replace("Contraindicado temporal","Diferido temporal") : ""}</div>
+    ${!arr.length ? `<div class="empty">Sin resultados.</div>` : PC() ? tablaPacientes(arr) : arr.map(p => ptCard(p)).join("")}`;
   const qi = m.querySelector("#q");
   qi.oninput = () => { S.q = qi.value; const pos = qi.selectionStart; render(); const n = document.getElementById("q"); n.focus(); n.setSelectionRange(pos,pos); };
   m.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { S.fGrupo = b.dataset.g; render(); });
   m.querySelectorAll("[data-e]").forEach(b => b.onclick = () => { S.fEstatus = b.dataset.e; render(); });
   m.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { S.fAlerta = b.dataset.a; render(); });
-  bindCards(m);
+  bindCards(m); bindTabla(m);
 }
 
 function vResumen(m) {
@@ -673,6 +706,7 @@ function regCard(r, mostrarLista = false) {
 function bindRegs(root) { root.querySelectorAll(".card[data-reg]").forEach(c => c.onclick = () => { const [L, k] = c.dataset.reg.split("|"); openReg(L, k); }); }
 
 function vEspera(m) {
+  if (PC()) return vEsperaPC(m);
   const q = nrm(S.q2).trim();
   let arr, titulo;
   if (q) {
@@ -700,6 +734,7 @@ function vEspera(m) {
 }
 
 function vProtocolo(m) {
+  if (PC()) return vProtocoloPC(m);
   const hoyD = hoy();
   let arr = todos().filter(r => r.f === "P" && (!S.fProt || (S.fProt === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO")));
   arr.sort((a,b) => (a.ip || "9999").localeCompare(b.ip || "9999") || (a.o || 0) - (b.o || 0));
@@ -913,6 +948,104 @@ async function importarListas(obj) {
 }
 // ===================== FIN LISTAS DE ESPERA =====================
 
+// ===================== VISTA DE COMPUTADORA (tablas tipo Excel) =====================
+// En pantallas anchas (PC) las listas se muestran como tabla, con las filas pintadas igual que el archivo de Excel.
+// En celular se conservan las tarjetas.
+const PC_MQ = matchMedia("(min-width:1000px)");
+const PC = () => PC_MQ.matches;
+PC_MQ.addEventListener?.("change", () => render());
+const LEYENDA = [["c-pro","En protocolo"],["c-ok","Protocolo completo / Listos"],["c-ver","Verificar"],["c-ci","Contraindicado temporal"],["c-nl","No localizable / no contesta"],["c-baja","Baja"]];
+const leyenda = (keys) => `<div class="ley">${LEYENDA.filter(([c]) => !keys || keys.includes(c)).map(([c,t]) => `<span><i class="${c}"></i>${t}</span>`).join("")}</div>`;
+function colorReg(r) {
+  const t = `${r.est || ""} ${r.nota || ""} ${r.obs || ""}`.toUpperCase();
+  if (r.f === "B") return "c-baja";
+  if (/VERIFICAR|CORROBORAR/.test(`${r.est || ""} ${r.nota || ""}`.toUpperCase())) return "c-ver";
+  if (r.f === "P") return "c-pro";
+  if (r.f === "L") return "c-ok";
+  if (/CONTRAINDICA/.test(r.est || "")) return "c-ci";
+  if (/NO LOCALIZ|NO CONTEST|NO RESPOND/.test((r.est || "").toUpperCase())) return "c-nl";
+  return "";
+}
+function colorPac(p) {
+  if (["BAJA DEFINITIVA","TRASPLANTADO"].includes(p.estatus)) return "c-baja";
+  if (p.estatus === "EN PROTOCOLO") return "c-pro";
+  if (p.estatus === "DIFERIDO TEMPORAL") return p.motivo === "No localizado" ? "c-nl" : "c-ci";
+  if (p.estatus === "ACTIVO") return "c-ok";
+  return "";
+}
+const tdx = (v, cls = "") => { const t = esc(v ?? ""); return /\b(obs|tel|est|nom2)\b/.test(cls) && t ? `<td class="${cls}"><div class="cl" title="${t}">${t}</div></td>` : `<td${cls ? ` class="${cls}"` : ""}>${t}</td>`; };
+const ANCHO = { "No":46, "#":40, "LUGAR":52, "ID":66, "LISTA":64, "GPO":46, "NOMBRE":210, "NSS":150, "F. REGISTRO":84, "F. RECEPCIÓN":84, "RESIDENCIA":86, "CIUDAD":86, "CURP":160, "EDAD":44, "SEXO":40,
+  "ADSC.":46, "MOD":50, "DONADOR":170, "PARENTESCO":90, "TELÉFONOS":175, "ESTATUS":135, "FASE":105, "INICIO PROTOCOLO":88, "DÍAS":48, "TERAPIA":60, "TX #":42, "PROTOCOLO":95, "VENCE":84, "ÚLT. CONTACTO":88 };
+const thead = head => `<colgroup>${head.map(h => `<col style="width:${ANCHO[h] ? ANCHO[h] + "px" : "auto"}">`).join("")}</colgroup><thead><tr>${head.map(h => `<th title="${h}">${h}</th>`).join("")}</tr></thead>`;
+const telsTxt = s => telsDe(s).map(x => x.n + (x.et ? " " + x.et : "")).join(" · ") || String(s || "");
+
+function tablaRegs(arr, conLista) {
+  const vivo = !conLista && arr.length && arr.every(r => r.L === "VIVO");
+  const head = vivo
+    ? ["#","NOMBRE","NSS","SEXO","F. RECEPCIÓN","ADSC.","GPO","CIUDAD","DONADOR","PARENTESCO","MOD","TELÉFONOS","ESTATUS","INICIO PROTOCOLO","OBSERVACIONES"]
+    : [...(conLista ? ["LISTA"] : []), "No","ID","NOMBRE","NSS","F. REGISTRO","RESIDENCIA","CURP","EDAD","TELÉFONOS","ESTATUS","FASE","OBSERVACIONES"];
+  const fila = r => {
+    const pos = lugar(r.L, r.k); const no = r.f === "B" ? "—" : pos;
+    const est = [r.est, r.f === "B" && r.bm ? "BAJA: " + r.bm : ""].filter(Boolean).join(" · ");
+    const obs = [r.nota, r.obs].filter(Boolean).join(" · ");
+    const cells = vivo
+      ? [tdx(no,"num"), tdx(r.n,"nom"), tdx(r.nss,"nw"), tdx(r.sx), tdx(r.fr ? fmt(r.fr) : "","nw"), tdx(r.adsc), tdx(r.gpo,"nw"), tdx(r.res), tdx(r.don,"nom2"), tdx(r.par), tdx(r.mod),
+         tdx(telsTxt(r.tel),"tel"), tdx(est,"est"), tdx(r.ip ? fmt(r.ip) : "","nw"), tdx(obs,"obs")]
+      : [...(conLista ? [tdx(LST[r.L].n.replace("Cadáver ",""),"nw")] : []), tdx(no,"num"), tdx(r.id,"nw"), tdx(r.n,"nom"), tdx(r.nss,"nw"), tdx(r.fr ? fmt(r.fr) : "","nw"), tdx(r.res),
+         tdx(r.curp,"nw"), tdx(edad(r.fnac),"num"), tdx(telsTxt(r.tel),"tel"), tdx(est,"est"), tdx(r.f === "E" ? "" : FASE[r.f],"nw"), tdx(obs,"obs")];
+    return `<tr class="${colorReg(r)}" data-reg="${esc(r.L)}|${esc(r.k)}">${cells.join("")}</tr>`;
+  };
+  return `<div class="tbl-wrap"><table class="xl">${thead(head)}<tbody>${arr.map(fila).join("")}</tbody></table></div>`;
+}
+function bindTabla(root) {
+  root.querySelectorAll("tr[data-reg]").forEach(tr => tr.onclick = () => { const [L, k] = tr.dataset.reg.split("|"); openReg(L, k); });
+  root.querySelectorAll("tr[data-id]").forEach(tr => tr.onclick = () => openFicha(tr.dataset.id));
+}
+
+function vEsperaPC(m) {
+  const q = nrm(S.q2).trim();
+  let arr;
+  if (q) arr = todos().filter(r => (S.verBajas || r.f !== "B") && (nrm(r.n).includes(q) || String(r.id || "").includes(q) || String(r.nss || "").replace(/\D/g, "").includes(q.replace(/\D/g, "") || "~") || nrm(r.curp).includes(q)));
+  else arr = regs(S.lst).filter(r => S.verBajas || r.f !== "B");
+  arr.sort((a,b) => (a.L === b.L ? 0 : LISTAS.findIndex(l => l[0] === a.L) - LISTAS.findIndex(l => l[0] === b.L)) || (a.f === "B") - (b.f === "B") || (a.o || 0) - (b.o || 0));
+  const cnt = L => S.pos[L]?.total || 0;
+  m.innerHTML = `<div class="pc-bar"><div class="search" style="flex:1;margin:0"><input id="q2" type="search" placeholder="Buscar en todas las listas: nombre, ID CENATRA, NSS o CURP" value="${esc(S.q2)}"></div>
+      <label class="vb"><input type="checkbox" id="vb" ${S.verBajas?"checked":""}> Ver bajas</label>${puedeEditar() ? `<button class="btn pri" id="nuevoReg">+ Registrar paciente</button>` : ""}</div>
+    <div class="chips">${LISTAS.map(([L,,n]) => `<button class="chip ${!q && S.lst===L?"on":""}" data-l="${L}">${n.replace("Cadáver ","")} <b>${cnt(L)}</b></button>`).join("")}</div>
+    <div class="pc-bar"><div class="sec" style="margin:4px 2px">${q ? `${arr.length} resultado${arr.length===1?"":"s"} en todas las listas` : `${esc(LST[S.lst].n)} · ${cnt(S.lst)} en lista`}</div>${leyenda()}</div>
+    ${!Object.keys(S.reg).length ? `<div class="empty">Cargando listas…</div>` : arr.length ? tablaRegs(arr, !!q) : `<div class="empty">Sin registros.</div>`}`;
+  const qi = m.querySelector("#q2");
+  qi.oninput = () => { S.q2 = qi.value; const pos = qi.selectionStart; render(); const n = document.getElementById("q2"); n.focus(); n.setSelectionRange(pos, pos); };
+  m.querySelectorAll("[data-l]").forEach(b => b.onclick = () => { S.lst = b.dataset.l; S.q2 = ""; render(); scrollTo(0,0); });
+  m.querySelector("#vb").onchange = e => { S.verBajas = e.target.checked; render(); };
+  const nb = m.querySelector("#nuevoReg"); if (nb) nb.onclick = () => regForm(S.lst, null);
+  bindTabla(m);
+}
+
+function vProtocoloPC(m) {
+  const hoyD = hoy();
+  const sel = r => r.f === "P" && (!S.fProt || (S.fProt === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"));
+  const arr = todos().filter(sel).sort((a,b) => (a.ip || "9999").localeCompare(b.ip || "9999") || (a.o || 0) - (b.o || 0));
+  const dias = r => r.ip ? Math.round((hoyD - parse(r.ip)) / 864e5) : null;
+  const head = ["LISTA","No","ID","NOMBRE","NSS","INICIO PROTOCOLO","DÍAS","DONADOR","TELÉFONOS","ESTATUS","OBSERVACIONES"];
+  m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes con protocolo <b>en curso</b>. Siguen en su lista de espera con su número. Los que llevan más tiempo aparecen primero.</div>
+    <div class="chips">${[["","Todos"],["CAD","Cadáver"],["VIVO","Donador vivo"]].map(([k,l]) => `<button class="chip ${S.fProt===k?"on":""}" data-p="${k}">${l} <b>${todos().filter(r => r.f === "P" && (!k || (k === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"))).length}</b></button>`).join("")}</div>
+    ${arr.length ? `<div class="tbl-wrap"><table class="xl">${thead(head)}<tbody>${arr.map(r => { const d = dias(r); return `<tr class="${colorReg(r)}" data-reg="${esc(r.L)}|${esc(r.k)}">${[
+      tdx(LST[r.L].n.replace("Cadáver ",""),"nw"), tdx(lugar(r.L, r.k),"num"), tdx(r.id,"nw"), tdx(r.n,"nom"), tdx(r.nss,"nw"), tdx(r.ip ? fmt(r.ip) : "Sin fecha","nw"),
+      `<td class="num ${d === null ? "" : d > 180 ? "d-bad" : d > 90 ? "d-warn" : ""}">${d ?? "—"}</td>`, tdx(r.don,"nom2"), tdx(telsTxt(r.tel),"tel"), tdx(r.est,"est"), tdx([r.nota, r.obs].filter(Boolean).join(" · "),"obs")].join("")}</tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">Sin pacientes en protocolo.</div>`}`;
+  m.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { S.fProt = b.dataset.p; render(); });
+  bindTabla(m);
+}
+
+function tablaPacientes(arr) {
+  const head = ["GPO","LUGAR","ID","NOMBRE","EDAD","TERAPIA","TX #","ESTATUS","PROTOCOLO","VENCE","TELÉFONOS","ÚLT. CONTACTO","OBSERVACIONES"];
+  return `<div class="tbl-wrap"><table class="xl">${thead(head)}<tbody>${arr.map(p => { const pr = protocolo(p);
+    return `<tr class="${colorPac(p)}" data-id="${esc(p.id)}">${[tdx(p.grupo,"nw"), tdx(p.regL ? lugar(p.regL, p.regK) : "","num"), tdx(p.idCenatra,"nw"), tdx(p.nombre,"nom"), tdx(edad(p.fnac),"num"), tdx(p.terapia),
+      tdx(p.noTx,"num"), tdx(p.estatus + (p.motivo && /DIFERIDO|BAJA/.test(p.estatus) ? " · " + p.motivo : ""),"est"),
+      `<td class="nw ${pr.alerta === "CADUCADO" ? "d-bad" : pr.alerta === "POR VENCER" ? "d-warn" : ""}">${pr.alerta !== "—" ? esc(pr.alerta) : ""}</td>`, tdx(pr.prox && pr.alerta !== "—" ? fmtD(pr.prox) : "","nw"),
+      tdx([p.tel1, p.tel2].filter(Boolean).join(" · "),"tel"), tdx(p.ultimoContacto ? fmt(p.ultimoContacto) : "","nw"), tdx(p.observaciones,"obs")].join("")}</tr>`; }).join("")}</tbody></table></div>`;
+}
+// ===================== FIN VISTA DE COMPUTADORA =====================
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
