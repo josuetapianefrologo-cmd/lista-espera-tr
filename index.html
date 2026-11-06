@@ -95,6 +95,10 @@ table.res th:first-child,table.res td:first-child{text-align:left;padding-left:1
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + var(--safe-b));background:#111827;color:#fff;padding:10px 16px;border-radius:12px;z-index:60;font-size:14px}
 .row{display:flex;gap:8px;flex-wrap:wrap}
 textarea{resize:vertical}
+input:not([type]),input[type=text],input[type=search],input[type=tel],textarea{text-transform:uppercase}
+input[type=search]::placeholder,textarea::placeholder,input::placeholder{text-transform:none}
+.chip-h{border-style:dashed;color:var(--gray)}
+.c-baja-h td{background:#f4f5f7}
 /* ---- Vista de computadora ---- */
 body.pc main{max-width:none;padding:10px 18px 30px}
 body.pc .hrow{max-width:none}
@@ -313,7 +317,7 @@ async function onUser(u) {
     render();
   }, e => { $app.innerHTML = `<div class="empty">Error de acceso: ${esc(e.code)}</div>`; }));
   if (S.rol === "admin") S.unsub.push(onSnapshot(doc(db, "config", "acceso"), s => { S.acceso = { editores:[], lectores:[], ...(s.data()||{}) }; if (S.tab === "mas" && S.mas === "ajustes") render(); }));
-  subscribeListas();
+  subscribeListas(); subscribeHist();
 }
 addEventListener("online", () => { S.online = true; render(); });
 addEventListener("offline", () => { S.online = false; render(); });
@@ -521,6 +525,7 @@ function flat(p) {
   const o = {}; for (const k of Object.keys(CAMPOS_LABEL)) { if (k.startsWith("estudios.")) o[k] = p.estudios?.[k.slice(9)] || ""; else o[k] = p[k] ?? ""; } return o;
 }
 async function guardar(id, nuevo, accion) {
+  for (const c of ["nombre","observaciones","agregado","etiologia","nss"]) if (typeof nuevo[c] === "string") nuevo[c] = nuevo[c].toUpperCase();
   const antes = id ? S.pacientes.find(x => x.id === id) : null;
   const a = antes ? flat(antes) : {}, b = flat(nuevo), cambios = {};
   for (const k of Object.keys(b)) if ((a[k] || "") !== (b[k] || "")) cambios[k] = [a[k] || "", b[k] || ""];
@@ -706,6 +711,7 @@ function regCard(r, mostrarLista = false) {
 function bindRegs(root) { root.querySelectorAll(".card[data-reg]").forEach(c => c.onclick = () => { const [L, k] = c.dataset.reg.split("|"); openReg(L, k); }); }
 
 function vEspera(m) {
+  if (!S.q2.trim() && S.lst.startsWith("HIST_")) return vHist(m);
   if (PC()) return vEsperaPC(m);
   const q = nrm(S.q2).trim();
   let arr, titulo;
@@ -720,17 +726,18 @@ function vEspera(m) {
   const vis = arr.slice(0, S.lim);
   const cnt = L => S.pos[L]?.total || 0;
   m.innerHTML = `<div class="search"><input id="q2" type="search" placeholder="Buscar en todas las listas: nombre, ID CENATRA, NSS o CURP" value="${esc(S.q2)}"></div>
-    <div class="chips">${LISTAS.map(([L,,n]) => `<button class="chip ${!q && S.lst===L?"on":""}" data-l="${L}">${n.replace("Cadáver ","")} <b>${cnt(L)}</b></button>`).join("")}</div>
+    <div class="chips">${LISTAS.map(([L,,n]) => `<button class="chip ${!q && S.lst===L?"on":""}" data-l="${L}">${n.replace("Cadáver ","")} <b>${cnt(L)}</b></button>`).join("")}${histChips(q)}</div>
     <div class="row" style="justify-content:space-between;align-items:center"><div class="sec" style="margin:8px 2px">${esc(titulo)}</div>
       <label style="font-size:12px;color:var(--muted)"><input type="checkbox" id="vb" ${S.verBajas?"checked":""}> Ver bajas</label></div>
     ${!Object.keys(S.reg).length ? `<div class="empty">Cargando listas…</div>` : vis.length ? vis.map(r => regCard(r, !!q)).join("") : `<div class="empty">Sin registros.</div>`}
-    ${arr.length > vis.length ? `<button class="btn block" id="mas">Mostrar más (${arr.length - vis.length} restantes)</button>` : ""}`;
+    ${arr.length > vis.length ? `<button class="btn block" id="mas">Mostrar más (${arr.length - vis.length} restantes)</button>` : ""}
+    ${q ? histBusquedaHTML(q) : ""}`;
   const qi = m.querySelector("#q2");
   qi.oninput = () => { S.q2 = qi.value; S.lim = 150; const pos = qi.selectionStart; render(); const n = document.getElementById("q2"); n.focus(); n.setSelectionRange(pos, pos); };
   m.querySelectorAll("[data-l]").forEach(b => b.onclick = () => { S.lst = b.dataset.l; S.q2 = ""; S.lim = 150; render(); });
   m.querySelector("#vb").onchange = e => { S.verBajas = e.target.checked; render(); };
   const mb = m.querySelector("#mas"); if (mb) mb.onclick = () => { S.lim += 300; render(); };
-  bindRegs(m);
+  bindRegs(m); bindHist(m);
 }
 
 function vProtocolo(m) {
@@ -758,7 +765,7 @@ function vMas(m) {
   m.innerHTML = `<div class="chips">${subs.map(([k,l]) => `<button class="chip ${S.mas===k?"on":""}" data-m="${k}">${l}</button>`).join("")}</div><div id="sub"></div>`;
   m.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { S.mas = b.dataset.m; render(); });
   const sub = m.querySelector("#sub");
-  ({ resumen: x => { vResumen(x); x.insertAdjacentHTML("afterbegin", resumenListas()); }, historial: vHistorial, ajustes: vAjustes })[S.mas](sub);
+  ({ resumen: x => { vResumen(x); x.insertAdjacentHTML("afterbegin", resumenListas()); if (puedeEditar()) { x.insertAdjacentHTML("afterbegin", `<button class="btn pri" id="xlsx2" style="margin-bottom:10px">Descargar Excel completo (todas las listas, Listos y bajas)</button>`); x.querySelector("#xlsx2").onclick = exportarExcelCompleto; } }, historial: vHistorial, ajustes: vAjustes })[S.mas](sub);
 }
 
 // ---------- Ficha del registro ----------
@@ -812,7 +819,8 @@ function openReg(L, k) {
 // Guarda cambios de un registro (funciona sin señal: se sube al volver la conexión)
 function regGuardar(L, k, cambiosObj, accion, extraBatch) {
   const antes = S.reg[L]?.[k] || {}; const upd = {}, cambios = {};
-  for (const [c, v] of Object.entries(cambiosObj)) {
+  for (const [c, v0] of Object.entries(cambiosObj)) {
+    const v = typeof v0 === "string" && !["f","mail","bm"].includes(c) ? v0.toUpperCase() : v0;
     if ((antes[c] ?? "") === (v ?? "")) continue;
     upd[`items.${k}.${c}`] = v;
     const fmtv = x => c === "f" ? (FASE[x] || x || "") : String(x ?? "");
@@ -834,7 +842,7 @@ function regForm(L, k) {
   let lista = L; const vivo = () => lista === "VIVO";
   const campos = () => [["n","Nombre completo *"],["id","ID CENATRA"],["nss","NSS"],["curp","CURP"],["fnac","Fecha de nacimiento","date"],["res","Residencia"],
     ...(vivo() ? [["gpo","Grupo sanguíneo"],["sx","Sexo"],["mod","Modalidad (HD/DP…)"],["adsc","Adscripción"],["don","Donador"],["par","Parentesco"]] : []),
-    ["mail","Correo"],["est","Estatus (texto libre)"],["nota","Aviso destacado (ej. VERIFICAR GRUPO)"]];
+    ["mail","Correo","email"],["est","Estatus (texto libre)"],["nota","Aviso destacado (ej. VERIFICAR GRUPO)"]];
   const html = () => `${nuevo ? `<label class="f">Lista *<select id="rl">${LISTAS.map(([id,,n]) => `<option value="${id}" ${id===lista?"selected":""}>${n}</option>`).join("")}</select></label>
       <div class="notice" style="background:var(--infobg);color:var(--info)">El nuevo registro queda <b>al final</b> de la lista, con fecha de hoy.</div>` : ""}
     <div class="grid2">${campos().map(([c,l,t]) => `<label class="f">${l}<input ${t ? `type="${t}"` : ""} data-c="${c}" value="${esc(r[c] || "")}"></label>`).join("")}</div>
@@ -846,7 +854,7 @@ function regForm(L, k) {
     const sel = sh.el.querySelector("#rl"); if (sel) sel.onchange = () => { sh.el.querySelectorAll("[data-c]").forEach(i => r[i.dataset.c] = i.value); lista = sel.value; sh.el.querySelector(".sh-body").innerHTML = html(); bind(); };
     sh.el.querySelector("#rg").onclick = () => {
       const v = {}; sh.el.querySelectorAll("[data-c]").forEach(i => v[i.dataset.c] = i.value.trim());
-      v.n = v.n.toUpperCase(); if (!v.n) return toast("Falta el nombre");
+      for (const c in v) if (c !== "mail") v[c] = v[c].toUpperCase(); if (!v.n) return toast("Falta el nombre");
       if (nuevo) {
         const dup = todos().find(x => x.f !== "B" && ((v.id && x.id === v.id) || nrm(x.n) === nrm(v.n)));
         if (dup && !confirm(`Ya existe ${dup.n} en ${LST[dup.L].n} (lugar ${lugar(dup.L, dup.k) || "—"}). ¿Registrar de todos modos?`)) return;
@@ -901,7 +909,7 @@ function regMigrar(k) {
     const dest = sh.el.querySelector("#mg").value; if (!dest) return toast("Elige el grupo");
     const kk = nuevaClave(); const pv = lugar("VIVO", k);
     const nuevoReg = { n: r.n, nss: r.nss || "", curp: r.curp || "", fnac: r.fnac || "", res: r.res || "", tel: r.tel || "", mail: r.mail || "", id: r.id || "",
-      obs: `${iso(new Date()).split("-").reverse().join("/")} Viene de donador vivo (lugar ${pv}); donador no apto.${r.obs ? "\n" + r.obs : ""}`, f: "E", fr: iso(new Date()), o: ultimoOrden(dest) + 1 };
+      obs: `${iso(new Date()).split("-").reverse().join("/")} VIENE DE DONADOR VIVO (LUGAR ${pv}); DONADOR NO APTO.${r.obs ? "\n" + r.obs : ""}`.toUpperCase(), f: "E", fr: iso(new Date()), o: ultimoOrden(dest) + 1 };
     regGuardar("VIVO", k, { f: "B", bm: "Migrado a cadáver", bf: iso(new Date()) }, `Pasa a ${LST[dest].n} (donador no apto)`, b => {
       b.set(doc(db, "listas", dest), { items: { [kk]: nuevoReg } }, { merge: true });
       b.set(doc(collection(db, "historial")), { pacienteId: `${dest}:${kk}`, nombre: r.n, accion: "Registrado (viene de donador vivo)", cambios: {}, por: S.user.email, fecha: serverTimestamp() });
@@ -1010,16 +1018,18 @@ function vEsperaPC(m) {
   arr.sort((a,b) => (a.L === b.L ? 0 : LISTAS.findIndex(l => l[0] === a.L) - LISTAS.findIndex(l => l[0] === b.L)) || (a.f === "B") - (b.f === "B") || (a.o || 0) - (b.o || 0));
   const cnt = L => S.pos[L]?.total || 0;
   m.innerHTML = `<div class="pc-bar"><div class="search" style="flex:1;margin:0"><input id="q2" type="search" placeholder="Buscar en todas las listas: nombre, ID CENATRA, NSS o CURP" value="${esc(S.q2)}"></div>
-      <label class="vb"><input type="checkbox" id="vb" ${S.verBajas?"checked":""}> Ver bajas</label>${puedeEditar() ? `<button class="btn pri" id="nuevoReg">+ Registrar paciente</button>` : ""}</div>
-    <div class="chips">${LISTAS.map(([L,,n]) => `<button class="chip ${!q && S.lst===L?"on":""}" data-l="${L}">${n.replace("Cadáver ","")} <b>${cnt(L)}</b></button>`).join("")}</div>
+      <label class="vb"><input type="checkbox" id="vb" ${S.verBajas?"checked":""}> Ver bajas</label>${puedeEditar() ? `<button class="btn" id="xlsx">Descargar Excel completo</button><button class="btn pri" id="nuevoReg">+ Registrar paciente</button>` : ""}</div>
+    <div class="chips">${LISTAS.map(([L,,n]) => `<button class="chip ${!q && S.lst===L?"on":""}" data-l="${L}">${n.replace("Cadáver ","")} <b>${cnt(L)}</b></button>`).join("")}${histChips(q)}</div>
     <div class="pc-bar"><div class="sec" style="margin:4px 2px">${q ? `${arr.length} resultado${arr.length===1?"":"s"} en todas las listas` : `${esc(LST[S.lst].n)} · ${cnt(S.lst)} en lista`}</div>${leyenda()}</div>
-    ${!Object.keys(S.reg).length ? `<div class="empty">Cargando listas…</div>` : arr.length ? tablaRegs(arr, !!q) : `<div class="empty">Sin registros.</div>`}`;
+    ${!Object.keys(S.reg).length ? `<div class="empty">Cargando listas…</div>` : arr.length ? tablaRegs(arr, !!q) : `<div class="empty">Sin registros.</div>`}
+    ${q ? histBusquedaHTML(q) : ""}`;
   const qi = m.querySelector("#q2");
   qi.oninput = () => { S.q2 = qi.value; const pos = qi.selectionStart; render(); const n = document.getElementById("q2"); n.focus(); n.setSelectionRange(pos, pos); };
   m.querySelectorAll("[data-l]").forEach(b => b.onclick = () => { S.lst = b.dataset.l; S.q2 = ""; render(); scrollTo(0,0); });
   m.querySelector("#vb").onchange = e => { S.verBajas = e.target.checked; render(); };
   const nb = m.querySelector("#nuevoReg"); if (nb) nb.onclick = () => regForm(S.lst, null);
-  bindTabla(m);
+  const xb = m.querySelector("#xlsx"); if (xb) xb.onclick = exportarExcelCompleto;
+  bindTabla(m); bindHist(m);
 }
 
 function vProtocoloPC(m) {
@@ -1046,6 +1056,101 @@ function tablaPacientes(arr) {
       tdx([p.tel1, p.tel2].filter(Boolean).join(" · "),"tel"), tdx(p.ultimoContacto ? fmt(p.ultimoContacto) : "","nw"), tdx(p.observaciones,"obs")].join("")}</tr>`; }).join("")}</tbody></table></div>`;
 }
 // ===================== FIN VISTA DE COMPUTADORA =====================
+// ===================== BAJAS HISTÓRICAS (copia fiel del Excel) Y DESCARGA PARA AUDITORÍA =====================
+const HIST = [["HIST_CAD","Bajas cadáver"],["HIST_VIVO","Bajas vivo"],["HIST_TEMP","Bajas temporales"],["HIST_HOSP","Cambio de hospital"]];
+const HIST_N = Object.fromEntries(HIST);
+S.hist = {};
+const MAY = s => typeof s === "string" ? s.toUpperCase() : s;
+function subscribeHist() {
+  for (const [H] of HIST) S.unsub.push(onSnapshot(doc(db, "listas", H), s => { S.hist[H] = s.data() || null; if (S.tab === "espera") render(); }, () => {}));
+}
+const histRows = H => Object.entries(S.hist[H]?.items || {}).map(([k, e]) => ({ ...e, k, H })).filter(e => !e.h).sort((a, b) => (a.o || 0) - (b.o || 0));
+const histChips = q => HIST.map(([H, n]) => `<button class="chip chip-h ${!q && S.lst === H ? "on" : ""}" data-l="${H}">${n} <b>${histRows(H).length}</b></button>`).join("");
+function histBuscar(q) {
+  const d = q.replace(/\D/g, "");
+  return HIST.flatMap(([H]) => histRows(H).filter(e => nrm(e.n).includes(q) || (d.length >= 4 && ((e.id || "").includes(d) || String(e.nss || "").replace(/\D/g, "").includes(d)))));
+}
+const histResto = e => { const cols = S.hist[e.H]?.cols || []; return (e.c || []).map((v, i) => [cols[i] || "", v]).filter(([c, v]) => v && !/^(No|#|ID|NOMBRE|NSS)$/.test(c)).map(([, v]) => v).join(" · "); };
+function histCard(e, conLista = false) {
+  return `<div class="card" data-hist="${esc(e.H)}|${esc(e.k)}" style="cursor:pointer"><div class="pt">
+    <div class="gb" style="min-width:58px;background:#8a93a3;font-size:12px">BAJA</div>
+    <div class="info"><div class="name">${esc(e.n)}</div>
+      <div class="meta">${[conLista ? HIST_N[e.H] + " (Excel)" : "", e.id ? "ID " + e.id : "", e.nss ? "NSS " + e.nss : ""].filter(Boolean).map(esc).join(" · ")}</div>
+      <div class="meta" style="display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;margin-top:4px">${esc(histResto(e))}</div></div></div></div>`;
+}
+function histBusquedaHTML(q) {
+  const r = histBuscar(q); if (!r.length) return "";
+  return `<div class="sec">En bajas históricas del Excel · ${r.length}</div><div class="${PC() ? "cgrid" : ""}">${r.slice(0, 60).map(e => histCard(e, true)).join("")}</div>`;
+}
+function histTabla(arr, H) {
+  const cols = S.hist[H]?.cols || [];
+  const w = c => c === "NOMBRE" ? 210 : /^(No|#)$/.test(c) ? 44 : /OBSERV|COL /.test(c) ? 170 : /DONADOR|TELÉF|CURP/.test(c) ? 160 : 100;
+  const tot = cols.reduce((s, c) => s + w(c), 0);
+  return `<div class="tbl-wrap"><table class="xl" style="min-width:${tot}px"><colgroup>${cols.map(c => `<col style="width:${w(c)}px">`).join("")}</colgroup>
+    <thead><tr>${cols.map(c => `<th title="${esc(c)}">${esc(c)}</th>`).join("")}</tr></thead>
+    <tbody>${arr.map(e => `<tr class="c-baja-h" data-hist="${esc(H)}|${esc(e.k)}">${cols.map((c, i) => { const v = esc(e.c?.[i] || ""); return c === "NOMBRE" ? `<td class="nom">${v}</td>` : `<td>${v ? `<div class="cl" title="${v}">${v}</div>` : ""}</td>`; }).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+function bindHist(root) { root.querySelectorAll("[data-hist]").forEach(x => x.onclick = () => { const [H, k] = x.dataset.hist.split("|"); openHist(H, k); }); }
+function openHist(H, k) {
+  const e = S.hist[H]?.items?.[k]; if (!e) return; const cols = S.hist[H].cols || [];
+  sheet(esc(e.n || "Registro"), `<div class="notice" style="background:var(--graybg);color:var(--gray)">Registro histórico copiado tal cual de la hoja <b>${esc(S.hist[H].hoja)}</b> del Excel. Solo consulta.</div>
+    <div class="card">${(e.c || []).map((v, i) => v ? `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><small style="color:var(--muted);display:block;font-size:11px">${esc(cols[i] || "Columna " + (i + 1))}</small><div style="white-space:pre-wrap">${esc(v)}</div></div>` : "").join("")}</div>`);
+}
+function vHist(m) {
+  const H = S.lst, d = S.hist[H], pc = PC(), arr = histRows(H);
+  const cnt = L => S.pos[L]?.total || 0; const vis = pc ? arr : arr.slice(0, S.lim);
+  m.innerHTML = `<div class="${pc ? "pc-bar" : ""}"><div class="search" style="${pc ? "flex:1;margin:0" : ""}"><input id="q2" type="search" placeholder="Buscar en todas las listas: nombre, ID CENATRA, NSS o CURP" value=""></div>
+      ${pc && puedeEditar() ? `<button class="btn" id="xlsx">Descargar Excel completo</button>` : ""}</div>
+    <div class="chips">${LISTAS.map(([L,,n]) => `<button class="chip" data-l="${L}">${n.replace("Cadáver ","")} <b>${cnt(L)}</b></button>`).join("")}${histChips("")}</div>
+    <div class="notice" style="background:var(--graybg);color:var(--gray)">${esc(HIST_N[H])} · copia fiel de la hoja <b>${esc(d?.hoja || "")}</b> del Excel original (solo consulta, para auditoría). No cuentan en los lugares de la lista. Las bajas nuevas se registran en cada lista con "Dar de baja".</div>
+    ${!d ? `<div class="empty">${d === null ? "Sin registros." : "Cargando…"}</div>` : pc ? histTabla(arr, H) : vis.map(e => histCard(e)).join("") + (arr.length > vis.length ? `<button class="btn block" id="mas">Mostrar más (${arr.length - vis.length} restantes)</button>` : "")}`;
+  const qi = m.querySelector("#q2");
+  qi.oninput = () => { S.q2 = qi.value; const pos = qi.selectionStart; render(); const n = document.getElementById("q2"); n.focus(); n.setSelectionRange(pos, pos); };
+  m.querySelectorAll("[data-l]").forEach(b => b.onclick = () => { S.lst = b.dataset.l; S.q2 = ""; S.lim = 150; render(); scrollTo(0,0); });
+  const mb = m.querySelector("#mas"); if (mb) mb.onclick = () => { S.lim += 300; render(); };
+  const xb = m.querySelector("#xlsx"); if (xb) xb.onclick = exportarExcelCompleto;
+  bindHist(m);
+}
+
+// Descarga de todo (listas activas con sus bajas, Listos y bajas históricas) en un solo Excel, una hoja por lista
+let XLSX_LIB = null;
+function cargarXLSX() {
+  if (XLSX_LIB) return XLSX_LIB;
+  XLSX_LIB = new Promise((ok, mal) => { const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload = () => ok(window.XLSX); s.onerror = () => { XLSX_LIB = null; mal(new Error("sin conexión")); }; document.head.appendChild(s); });
+  return XLSX_LIB;
+}
+async function exportarExcelCompleto() {
+  toast("Preparando Excel…");
+  let X; try { X = await cargarXLSX(); } catch { return toast("Se necesita internet para generar el Excel"); }
+  const wb = X.utils.book_new();
+  const fase = r => r.f === "B" ? "BAJA" : r.f === "E" ? "EN ESPERA" : FASE[r.f];
+  for (const [L, g, n] of LISTAS) {
+    const vivo = L === "VIVO";
+    const arr = regs(L).sort((a, b) => (a.f === "B") - (b.f === "B") || (a.o || 0) - (b.o || 0));
+    const head = vivo ? ["#","NOMBRE","NSS","SEXO","F. RECEPCIÓN","ADSC.","GPO","CIUDAD","DONADOR","PARENTESCO","MODALIDAD","TELÉFONOS","CORREO","ESTATUS","FASE","INICIO PROTOCOLO","OBSERVACIONES","AVISO","MOTIVO BAJA","FECHA BAJA"]
+      : ["No","ID","NOMBRE","NSS","F. REGISTRO","RESIDENCIA","CURP","F. NACIMIENTO","TELÉFONOS","CORREO","ESTATUS","FASE","INICIO PROTOCOLO","OBSERVACIONES","AVISO","MOTIVO BAJA","FECHA BAJA"];
+    const f = x => x ? fmt(x) : "";
+    const rows = arr.map(r => vivo
+      ? [lugar(L, r.k) || "", r.n, r.nss, r.sx, f(r.fr), r.adsc, r.gpo, r.res, r.don, r.par, r.mod, r.tel, r.mail, r.est, fase(r), f(r.ip), r.obs, r.nota, r.bm, f(r.bf)]
+      : [lugar(L, r.k) || "", r.id, r.n, r.nss, f(r.fr), r.res, r.curp, f(r.fnac), r.tel, r.mail, r.est, fase(r), f(r.ip), r.obs, r.nota, r.bm, f(r.bf)]).map(a => a.map(v => v ?? ""));
+    X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet([head, ...rows]), vivo ? "LDVR" : g);
+  }
+  const cols = ["grupo","nombre","fnac","nss","agregado","tel1","tel2","noTx","etiologia","terapia","estatus","motivo","fechaEstatus","revalorar"];
+  const headP = ["Lugar en lista","ID CENATRA", ...cols.map(c => CAMPOS_LABEL[c] || c), "Alerta protocolo", "Próx. vencimiento", ...ESTUDIOS.map(e => e[1]), "Último contacto", "Observaciones"];
+  const rowsP = ordenar([...S.pacientes]).map(p => { const pr = protocolo(p);
+    return [p.regL ? lugar(p.regL, p.regK) || "" : "", p.idCenatra || "", ...cols.map(c => /fnac|fecha|revalorar/i.test(c) ? (p[c] ? fmt(p[c]) : "") : (p[c] ?? "")), pr.alerta, pr.prox ? fmtD(pr.prox) : "", ...ESTUDIOS.map(([k]) => p.estudios?.[k] ? fmt(p.estudios[k]) : ""), p.ultimoContacto ? fmt(p.ultimoContacto) : "", p.observaciones || ""]; });
+  X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet([headP, ...rowsP]), "LISTOS (PROTOCOLO TERMINADO)");
+  for (const [H] of HIST) {
+    const d = S.hist[H]; if (!d) continue;
+    X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet([d.cols, ...histRows(H).map(e => e.c)]), (d.hoja || H).slice(0, 31));
+  }
+  X.writeFile(wb, `LISTA_DE_ESPERA_TR_${iso(new Date())}.xlsx`);
+  regLogDescarga();
+}
+function regLogDescarga() {
+  addDoc(collection(db, "historial"), { pacienteId: "listas", nombre: "Listas de espera", accion: "Descarga de Excel completo", cambios: {}, por: S.user.email, fecha: serverTimestamp() }).catch(() => {});
+}
+// ===================== FIN BAJAS HISTÓRICAS =====================
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
