@@ -98,6 +98,8 @@ textarea{resize:vertical}
 input:not([type]),input[type=text],input[type=search],input[type=tel],textarea{text-transform:uppercase}
 input[type=search]::placeholder,textarea::placeholder,input::placeholder{text-transform:none}
 .chip-h{border-style:dashed;color:var(--gray)}
+.hbtn{border:0;background:#fff;color:var(--navy);border-radius:10px;padding:7px 14px;display:flex;gap:6px;align-items:center;cursor:pointer;font-size:14px;font-weight:600;white-space:nowrap}
+.hbtn svg{width:18px;height:18px}
 .cb-wrap{position:relative}
 .cb-wrap input{padding-right:40px!important}
 .cb-btn{position:absolute;right:4px;top:8px;width:34px;height:34px;border:0;background:none;color:var(--muted);font-size:16px;cursor:pointer}
@@ -338,17 +340,19 @@ function render() {
   if (!S.user || !S.rol) return;
   const scroll = scrollY;
   const syncTxt = !S.online ? "Sin conexión · guardado en el equipo" : S.pendientes ? "Sincronizando…" : "Sincronizado";
-  const tabs = [["elegibles","Elegibles",I.star],["lista","Listos",I.list],["protocolo","Protocolo",I.prot],["espera","Espera",I.fila],["mas","Más",I.mas]];
+  const tabs = [["elegibles","Elegibles",I.star],["lista","Terminados",I.list],["protocolo","Protocolo",I.prot],["espera","Espera",I.fila],["mas","Más",I.mas]];
   const pc = PC(); document.body.classList.toggle("pc", pc);
   const tabBtns = tabs.map(([k,l,ic]) => `<button data-tab="${k}" class="${S.tab===k?"on":""}">${ic}${l}</button>`).join("");
   $app.innerHTML = `
   <header><div class="hrow"><div class="htitle" ${pc ? 'style="flex:0 0 auto"' : ""}><b>Lista de Espera TR</b><small>${esc(S.user.email)} · ${S.rol === "lector" ? "solo consulta" : S.rol}</small></div>
     ${pc ? `<div class="htabs">${tabBtns}</div><div style="flex:1"></div>` : ""}
+    <button class="hbtn" id="hBuscar" title="Buscar paciente (Ctrl+K)">${I.lupa}${pc ? "Buscar paciente" : ""}</button>
     <span class="sync ${!S.online ? "off" : ""}">${syncTxt}</span></div></header>
   <main id="main"></main>
   ${puedeEditar() && ["lista","elegibles"].concat(pc ? [] : ["espera"]).includes(S.tab) ? `<button class="fab" id="fab" aria-label="Nuevo">+</button>` : ""}
   ${pc ? "" : `<nav class="tabs">${tabBtns}</nav>`}`;
   document.querySelectorAll("nav.tabs button, .htabs button").forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); scrollTo(0,0); });
+  document.getElementById("hBuscar").onclick = abrirBuscador;
   const fab = document.getElementById("fab"); if (fab) fab.onclick = () => S.tab === "espera" ? regForm(S.q2 ? S.lst : S.lst, null) : openForm(null);
   const m = document.getElementById("main");
   ({ elegibles: vElegibles, lista: vLista, protocolo: vProtocolo, espera: vEspera, mas: vMas })[S.tab](m);
@@ -389,17 +393,24 @@ function vElegibles(m) {
 function vLista(m) {
   const q = S.q.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu,"");
   const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu,"");
-  let arr = S.pacientes.filter(p => (!S.fGrupo || p.grupo === S.fGrupo) && (!S.fEstatus || p.estatus === S.fEstatus)
+  const OCULTOS = ["BAJA DEFINITIVA","TRASPLANTADO"];
+  let arr = S.pacientes.filter(p => (!S.fGrupo || p.grupo === S.fGrupo) && (S.fEstatus ? p.estatus === S.fEstatus : !OCULTOS.includes(p.estatus))
     && (!S.fAlerta || protocolo(p).alerta === S.fAlerta)
     && (!q || norm(p.nombre).includes(q) || (p.nss||"").includes(q) || (p.tel1||"").includes(q) || (p.tel2||"").includes(q)));
   ordenar(arr);
+  const ORD_E = ["ACTIVO","EN PROTOCOLO","DIFERIDO TEMPORAL","TRASPLANTADO","BAJA DEFINITIVA"];
+  const secs = ORD_E.map(e => [e, arr.filter(p => p.estatus === e)]).filter(([, a]) => a.length);
+  const ocultos = S.fEstatus ? 0 : S.pacientes.filter(p => OCULTOS.includes(p.estatus) && (!S.fGrupo || p.grupo === S.fGrupo)).length;
+  const TIT = { "ACTIVO":"Activos · pueden recibir riñón (aparecen en Elegibles)", "EN PROTOCOLO":"Actualizando protocolo", "DIFERIDO TEMPORAL":"Diferidos temporales · terminaron, pero con estudios vencidos u otra causa temporal", "TRASPLANTADO":"Trasplantados", "BAJA DEFINITIVA":"Bajas definitivas" };
   const gruposUsados = GRUPOS.filter(g => S.pacientes.some(p => p.grupo === g));
-  m.innerHTML = `<div class="search"><input id="q" type="search" placeholder="Buscar nombre, NSS o teléfono" value="${esc(S.q)}"></div>
+  m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes de cadáver que <b>ya terminaron su protocolo</b>. Aquí se vigila la vigencia de sus estudios. <b>Activos</b> = listos para llamarse cuando llegue un riñón. <b>Diferidos temporales</b> = terminaron, pero algo los detiene por ahora (estudios vencidos, infección, no localizados…); al resolverlo regresan a Activos.</div>
+    <div class="search"><input id="q" type="search" placeholder="Buscar nombre, NSS o teléfono" value="${esc(S.q)}"></div>
     <div class="chips">${["", ...gruposUsados].map(g => `<button class="chip ${S.fGrupo===g?"on":""}" data-g="${g}">${g || "Todos"}</button>`).join("")}</div>
-    <div class="chips">${["", ...ESTATUS].map(e => `<button class="chip ${S.fEstatus===e?"on":""}" data-e="${e}">${e || "Cualquier estatus"}</button>`).join("")}</div>
+    <div class="chips">${["", ...ESTATUS].map(e => `<button class="chip ${S.fEstatus===e?"on":""}" data-e="${e}">${e || "Todos (sin bajas ni trasplantados)"}</button>`).join("")}</div>
     <div class="chips">${["","CADUCADO","POR VENCER","INCOMPLETO","VIGENTE","REVALORAR"].map(a => `<button class="chip ${S.fAlerta===a?"on":""}" data-a="${a}">${a ? "Protocolo: "+a : "Cualquier alerta"}</button>`).join("")}</div>
     <div class="pc-bar"><div class="sec" style="margin:4px 2px">${arr.length} paciente${arr.length===1?"":"s"}</div>${PC() ? leyenda(["c-ok","c-pro","c-ci","c-nl","c-baja"]).replace("Protocolo completo / Listos","Activo") .replace("Contraindicado temporal","Diferido temporal") : ""}</div>
-    ${!arr.length ? `<div class="empty">Sin resultados.</div>` : PC() ? tablaPacientes(arr) : arr.map(p => ptCard(p)).join("")}`;
+    ${!arr.length ? `<div class="empty">Sin resultados.</div>` : secs.map(([e, a]) => `<div class="sec">${esc(TIT[e] || e)} · ${a.length}</div>${PC() ? tablaPacientes(a) : a.map(p => ptCard(p)).join("")}`).join("")}
+    ${ocultos ? `<div class="empty" style="padding:14px">${ocultos} trasplantado(s) o baja(s) ocultos · usa el filtro de estatus para verlos.</div>` : ""}`;
   const qi = m.querySelector("#q");
   qi.oninput = () => { S.q = qi.value; const pos = qi.selectionStart; render(); const n = document.getElementById("q"); n.focus(); n.setSelectionRange(pos,pos); };
   m.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { S.fGrupo = b.dataset.g; render(); });
@@ -749,14 +760,14 @@ function vEspera(m) {
 function vProtocolo(m) {
   if (PC()) return vProtocoloPC(m);
   const hoyD = hoy();
-  let arr = todos().filter(r => r.f === "P" && (!S.fProt || (S.fProt === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO")));
+  let arr = protFiltrados();
   arr.sort((a,b) => (a.ip || "9999").localeCompare(b.ip || "9999") || (a.o || 0) - (b.o || 0));
   const dias = r => r.ip ? Math.round((hoyD - parse(r.ip)) / 864e5) : null;
   m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes con protocolo <b>en curso</b>. Siguen en su lista de espera con su número. Los que llevan más tiempo aparecen primero, para ver a quién hay que agilizar.</div>
-    <div class="chips">${[["","Todos"],["CAD","Cadáver"],["VIVO","Donador vivo"]].map(([k,l]) => `<button class="chip ${S.fProt===k?"on":""}" data-p="${k}">${l} <b>${todos().filter(r => r.f === "P" && (!k || (k === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"))).length}</b></button>`).join("")}</div>
+    <div class="chips">${[["","Todos"],["CAD","Cadáver"],["VIVO","Donador vivo"]].map(([k,l]) => `<button class="chip ${S.fProt===k?"on":""}" data-p="${k}">${l} <b>${todos().filter(r => r.f === "P" && (!k || (k === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"))).length}</b></button>`).join("")}</div>${chipsGrupoProt()}
     ${arr.map(r => { const d = dias(r); return regCard(r, true).replace('<div class="tags">', `<div class="tags">${d !== null ? `<span class="tag ${d > 180 ? "t-bad" : d > 90 ? "t-warn" : "t-ok"}">${d} días en protocolo</span>` : `<span class="tag t-gray">Sin fecha de inicio</span>`}`); }).join("") || `<div class="empty">Sin pacientes en protocolo.</div>`}`;
-  m.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { S.fProt = b.dataset.p; render(); });
-  bindRegs(m);
+  m.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { S.fProt = b.dataset.p; S.fProtG = ""; render(); });
+  bindChipsGrupoProt(m); bindRegs(m);
 }
 
 function resumenListas() {
@@ -1045,16 +1056,16 @@ function vEsperaPC(m) {
 function vProtocoloPC(m) {
   const hoyD = hoy();
   const sel = r => r.f === "P" && (!S.fProt || (S.fProt === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"));
-  const arr = todos().filter(sel).sort((a,b) => (a.ip || "9999").localeCompare(b.ip || "9999") || (a.o || 0) - (b.o || 0));
+  const arr = protFiltrados().sort((a,b) => (a.ip || "9999").localeCompare(b.ip || "9999") || (a.o || 0) - (b.o || 0));
   const dias = r => r.ip ? Math.round((hoyD - parse(r.ip)) / 864e5) : null;
-  const head = ["LISTA","No","ID","NOMBRE","NSS","INICIO PROTOCOLO","DÍAS","DONADOR","TELÉFONOS","ESTATUS","OBSERVACIONES"];
+  const head = ["LISTA","GPO","No","ID","NOMBRE","NSS","INICIO PROTOCOLO","DÍAS","DONADOR","TELÉFONOS","ESTATUS","OBSERVACIONES"];
   m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes con protocolo <b>en curso</b>. Siguen en su lista de espera con su número. Los que llevan más tiempo aparecen primero.</div>
-    <div class="chips">${[["","Todos"],["CAD","Cadáver"],["VIVO","Donador vivo"]].map(([k,l]) => `<button class="chip ${S.fProt===k?"on":""}" data-p="${k}">${l} <b>${todos().filter(r => r.f === "P" && (!k || (k === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"))).length}</b></button>`).join("")}</div>
+    <div class="chips">${[["","Todos"],["CAD","Cadáver"],["VIVO","Donador vivo"]].map(([k,l]) => `<button class="chip ${S.fProt===k?"on":""}" data-p="${k}">${l} <b>${todos().filter(r => r.f === "P" && (!k || (k === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"))).length}</b></button>`).join("")}</div>${chipsGrupoProt()}
     ${arr.length ? `<div class="tbl-wrap"><table class="xl">${thead(head)}<tbody>${arr.map(r => { const d = dias(r); return `<tr class="${colorReg(r)}" data-reg="${esc(r.L)}|${esc(r.k)}">${[
-      tdx(LST[r.L].n.replace("Cadáver ",""),"nw"), tdx(lugar(r.L, r.k),"num"), tdx(r.id,"nw"), tdx(r.n,"nom"), tdx(r.nss,"nw"), tdx(r.ip ? fmt(r.ip) : "Sin fecha","nw"),
+      tdx(r.L === "VIVO" ? "VIVO" : "CADÁVER","nw"), tdx(grpReg(r),"nw"), tdx(lugar(r.L, r.k),"num"), tdx(r.id,"nw"), tdx(r.n,"nom"), tdx(r.nss,"nw"), tdx(r.ip ? fmt(r.ip) : "Sin fecha","nw"),
       `<td class="num ${d === null ? "" : d > 180 ? "d-bad" : d > 90 ? "d-warn" : ""}">${d ?? "—"}</td>`, tdx(r.don,"nom2"), tdx(telsTxt(r.tel),"tel"), tdx(r.est,"est"), tdx([r.nota, r.obs].filter(Boolean).join(" · "),"obs")].join("")}</tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">Sin pacientes en protocolo.</div>`}`;
-  m.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { S.fProt = b.dataset.p; render(); });
-  bindTabla(m);
+  m.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { S.fProt = b.dataset.p; S.fProtG = ""; render(); });
+  bindChipsGrupoProt(m); bindTabla(m);
 }
 
 function tablaPacientes(arr) {
@@ -1191,6 +1202,49 @@ function comboEst(inp) {
 }
 const estValido = v => !v || EST_CAT.includes(v);
 // ===================== FIN ESTATUS =====================
+// ===================== BUSCADOR GENERAL Y GRUPOS EN PROTOCOLO =====================
+I.lupa = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
+const GRP_ORD = ["O+","A+","B+","AB+","O-","A-","B-","AB-"];
+const grpReg = r => r.L === "VIVO" ? String(r.gpo || "").toUpperCase().replace(/\s+/g, "").replace(/^0/, "O").replace("−", "-") : LST[r.L].g;
+const enProt = r => r.f === "P" && (!S.fProt || (S.fProt === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"));
+const protFiltrados = () => todos().filter(r => enProt(r) && (!S.fProtG || grpReg(r) === S.fProtG));
+function chipsGrupoProt() {
+  const base = todos().filter(enProt); const c = g => base.filter(r => grpReg(r) === g).length;
+  const gs = GRP_ORD.filter(g => c(g)); const sin = base.filter(r => !GRP_ORD.includes(grpReg(r))).length;
+  return `<div class="chips"><button class="chip ${!S.fProtG ? "on" : ""}" data-pg="">Todos los grupos <b>${base.length}</b></button>${gs.map(g => `<button class="chip ${S.fProtG === g ? "on" : ""}" data-pg="${g}">${g} <b>${c(g)}</b></button>`).join("")}${sin ? `<button class="chip ${S.fProtG === "?" ? "on" : ""}" data-pg="?">Sin grupo <b>${sin}</b></button>` : ""}</div>`;
+}
+function bindChipsGrupoProt(m) { m.querySelectorAll("[data-pg]").forEach(b => b.onclick = () => { S.fProtG = b.dataset.pg; render(); }); }
+S.fProtG = "";
+
+function resCard(r) {
+  const pos = lugar(r.L, r.k), g = grpReg(r) || "—", baja = r.f === "B";
+  const pac = S.pacientes.find(p => (r.pid && p.id === r.pid) || (p.regL === r.L && p.regK === r.k));
+  return `<div class="card" data-reg="${esc(r.L)}|${esc(r.k)}" style="cursor:pointer"><div class="pt">
+    <div class="gb" style="min-width:78px;height:auto;padding:6px 4px;display:flex;flex-direction:column;align-items:center;${baja ? "background:#8a93a3" : ""}"><span style="font-size:10px;opacity:.85;font-weight:600">${baja ? "BAJA" : "LUGAR"}</span><span style="font-size:${pos > 999 ? 19 : 23}px;line-height:1.1">${baja ? "—" : pos}</span><span style="font-size:10px;opacity:.85">${baja ? "" : "de " + (S.pos[r.L]?.total || 0)}</span></div>
+    <div class="info"><div class="name">${esc(r.n)}</div>
+      <div class="meta"><b style="color:var(--ink)">${esc(LST[r.L].n)}</b> · Grupo <b style="color:var(--ink)">${esc(g)}</b></div>
+      <div class="meta">${[r.id ? "ID " + r.id : "", r.nss ? "NSS " + r.nss : "", r.fr ? "Registro " + fmt(r.fr) : ""].filter(Boolean).map(esc).join(" · ")}</div>
+      <div class="tags"><span class="tag ${FASE_CLS[r.f]}">${FASE[r.f]}${baja && r.bm ? " · " + esc(r.bm) : ""}</span>${r.est ? `<span class="tag t-gray">${esc(r.est)}</span>` : ""}${pac ? `<span class="tag t-ok">Protocolo terminado · ${esc(pac.estatus)}</span>` : ""}${r.nota ? `<span class="tag t-warn">${esc(r.nota)}</span>` : ""}</div></div></div></div>`;
+}
+function abrirBuscador() {
+  const sh = sheet("Buscar paciente (todas las listas)", `<div class="search"><input id="gq" type="search" placeholder="Nombre, ID CENATRA, NSS o CURP" autocomplete="off"></div>
+    <div id="gr"><div class="empty" style="padding:24px 10px">Escribe al menos 3 letras o números.<br><small>Busca en cadáver (todos los grupos), donador vivo, protocolo terminado y bajas históricas.</small></div></div>`);
+  const i = sh.el.querySelector("#gq"); setTimeout(() => i.focus(), 60);
+  i.oninput = () => {
+    const q = nrm(i.value).trim(), d = q.replace(/\D/g, ""), out = sh.el.querySelector("#gr");
+    if (q.length < 3) { out.innerHTML = `<div class="empty" style="padding:24px 10px">Escribe al menos 3 letras o números.</div>`; return; }
+    const rs = todos().filter(r => nrm(r.n).includes(q) || nrm(r.curp).includes(q) || (d.length >= 4 && (String(r.id || "").includes(d) || String(r.nss || "").replace(/\D/g, "").includes(d))))
+      .sort((a, b) => (a.f === "B") - (b.f === "B") || nrm(a.n).localeCompare(nrm(b.n)));
+    const ps = S.pacientes.filter(p => !(p.regL && S.reg[p.regL]?.[p.regK]) && (nrm(p.nombre).includes(q) || (d.length >= 4 && String(p.nss || "").replace(/\D/g, "").includes(d))));
+    const hs = histBuscar(q);
+    out.innerHTML = (rs.length || ps.length || hs.length) ? `<div class="sec">${rs.length + ps.length + hs.length} resultado${rs.length + ps.length + hs.length === 1 ? "" : "s"}</div>
+      ${rs.slice(0, 60).map(resCard).join("")}${ps.map(p => ptCard(p, true)).join("")}
+      ${hs.length ? `<div class="sec">En bajas históricas del Excel</div>${hs.slice(0, 40).map(e => histCard(e, true)).join("")}` : ""}` : `<div class="empty" style="padding:24px 10px">Sin coincidencias.</div>`;
+    bindRegs(out); bindCards(out); bindHist(out);
+  };
+}
+addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k" && S.user) { e.preventDefault(); abrirBuscador(); } });
+// ===================== FIN BUSCADOR =====================
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
