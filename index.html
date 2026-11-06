@@ -446,7 +446,7 @@ function vHistorial(m) {
   m.innerHTML = `<div class="empty">Cargando cambios…</div>`;
   const un = onSnapshot(query(collection(db, "historial"), orderBy("fecha","desc"), limit(150)), snap => {
     if (S.tab !== "mas" || S.mas !== "historial") { un(); return; }
-    const rows = snap.docs.map(d => d.data());
+    const rows = marcaDeshechos(snap.docs.map(d => ({ ...d.data(), _id: d.id })));
     m.innerHTML = `<div class="sec">Últimos ${rows.length} cambios</div>` + (rows.length ? rows.map(histItem).join("") : `<div class="empty">Sin cambios registrados.</div>`);
   }, e => m.innerHTML = `<div class="empty">No se pudo cargar: ${esc(e.code)}</div>`);
   S.unsub.push(un);
@@ -454,7 +454,7 @@ function vHistorial(m) {
 function histItem(h) {
   const f = h.fecha?.toDate ? h.fecha.toDate() : null;
   const cambios = Object.entries(h.cambios || {}).map(([k,[a,b]]) => `<div>${esc(CAMPOS_LABEL[k] || k)}: <s style="color:var(--muted)">${esc(a || "vacío")}</s> → <b>${esc(b || "vacío")}</b></div>`).join("");
-  return `<div class="hist"><b>${esc(h.accion)}</b> · ${esc(h.nombre)}<br><small>${esc(h.por)} · ${f ? f.toLocaleString("es-MX") : "pendiente de sincronizar"}</small>${cambios ? `<div style="margin-top:4px">${cambios}</div>` : ""}</div>`;
+  return `<div class="hist"><b>${esc(h.accion)}</b> · ${esc(h.nombre)}<br><small>${esc(h.por)} · ${f ? f.toLocaleString("es-MX") : "pendiente de sincronizar"}</small>${cambios ? `<div style="margin-top:4px">${cambios}</div>` : ""}${undoBtn(h)}</div>`;
 }
 
 function vAjustes(m) {
@@ -527,7 +527,7 @@ function openFicha(id) {
     <div class="sec">Historial de este paciente</div><div id="hp"><div class="empty" style="padding:10px">Cargando…</div></div>
     ${puedeEditar() ? `<div class="row" style="margin-top:16px"><button class="btn pri" id="bEd" style="flex:1">Editar</button><button class="btn" id="bCont" style="flex:1">Registrar llamada</button></div>` : ""}`);
   const un = onSnapshot(query(collection(db,"historial"), where("pacienteId","==",id), limit(40)), snap => {
-    const rows = snap.docs.map(d => d.data()).sort((a,b) => (b.fecha?.seconds||9e9) - (a.fecha?.seconds||9e9));
+    const rows = marcaDeshechos(snap.docs.map(d => ({ ...d.data(), _id: d.id }))).sort((a,b) => (b.fecha?.seconds||9e9) - (a.fecha?.seconds||9e9));
     const hp = sh.el.querySelector("#hp"); if (hp) hp.innerHTML = rows.length ? rows.map(histItem).join("") : `<div style="color:var(--muted);font-size:13px">Sin cambios registrados desde que se usa la app.</div>`;
   }, () => {});
   sh.el.__onClose = un;
@@ -551,7 +551,12 @@ async function guardar(id, nuevo, accion) {
   const data = { ...nuevo, actualizado: serverTimestamp(), actualizadoPor: S.user.email };
   delete data.id;
   const batch = writeBatch(db);
-  batch.set(ref, data);
+  if (antes) {
+    const upd = { actualizado: serverTimestamp(), actualizadoPor: S.user.email };
+    for (const c of new Set([...Object.keys(nuevo), ...Object.keys(antes)])) { if (["id","estudios","actualizado","actualizadoPor"].includes(c)) continue; if (JSON.stringify(nuevo[c] ?? "") !== JSON.stringify(antes[c] ?? "")) upd[c] = nuevo[c] ?? ""; }
+    for (const e of new Set([...Object.keys(nuevo.estudios || {}), ...Object.keys(antes.estudios || {})])) if ((nuevo.estudios?.[e] || "") !== (antes.estudios?.[e] || "")) upd["estudios." + e] = nuevo.estudios?.[e] || "";
+    batch.update(ref, upd);
+  } else batch.set(ref, data);
   batch.set(doc(collection(db, "historial")), { pacienteId: ref.id, nombre: nuevo.nombre, accion, cambios, por: S.user.email, fecha: serverTimestamp() });
   if (nuevo.regL && nuevo.regK && S.reg[nuevo.regL]?.[nuevo.regK] && (antes?.estatus !== nuevo.estatus) && ["TRASPLANTADO","BAJA DEFINITIVA"].includes(nuevo.estatus)) {
     const bm = nuevo.estatus === "TRASPLANTADO" ? "Trasplante" : (nuevo.motivo === "Defunción" ? "Defunción" : (nuevo.motivo || "Otro"));
@@ -627,7 +632,7 @@ function openForm(p) {
     const b = writeBatch(db);
     b.delete(doc(db, "pacientes", p.id));
     const respaldo = flat(p); const cambios = {}; for (const k in respaldo) if (respaldo[k]) cambios[k] = [respaldo[k], ""];
-    b.set(doc(collection(db, "historial")), { pacienteId: p.id, nombre: p.nombre, accion: "Paciente ELIMINADO", cambios, por: S.user.email, fecha: serverTimestamp() });
+    b.set(doc(collection(db, "historial")), { pacienteId: p.id, nombre: p.nombre, accion: "Paciente ELIMINADO", cambios, respaldo: (({ id, actualizado, ...x }) => x)(p), por: S.user.email, fecha: serverTimestamp() });
     b.commit().catch(e => toast("Error: " + e.code)); sh.close(); toast("Paciente eliminado");
   };
 }
@@ -817,7 +822,7 @@ function openReg(L, k) {
     ${acciones}
     <div class="sec">Historial</div><div id="hr"><div class="empty" style="padding:10px">Cargando…</div></div>`);
   const un = onSnapshot(query(collection(db, "historial"), where("pacienteId", "==", `${L}:${k}`), limit(40)), snap => {
-    const rows = snap.docs.map(d => d.data()).sort((a,b) => (b.fecha?.seconds||9e9) - (a.fecha?.seconds||9e9));
+    const rows = marcaDeshechos(snap.docs.map(d => ({ ...d.data(), _id: d.id }))).sort((a,b) => (b.fecha?.seconds||9e9) - (a.fecha?.seconds||9e9));
     const h = sh.el.querySelector("#hr"); if (h) h.innerHTML = rows.length ? rows.map(histItem).join("") : `<div style="color:var(--muted);font-size:13px">Sin cambios registrados desde que se usa la app.</div>`;
   }, () => {});
   sh.el.__onClose = un;
@@ -834,19 +839,20 @@ function openReg(L, k) {
 }
 
 // Guarda cambios de un registro (funciona sin señal: se sube al volver la conexión)
-function regGuardar(L, k, cambiosObj, accion, extraBatch) {
-  const antes = S.reg[L]?.[k] || {}; const upd = {}, cambios = {};
+function regGuardar(L, k, cambiosObj, accion, extraBatch, meta) {
+  const antes = S.reg[L]?.[k] || {}; const upd = {}, cambios = {}, campos = {};
   for (const [c, v0] of Object.entries(cambiosObj)) {
     const v = typeof v0 === "string" && !["f","mail","bm"].includes(c) ? v0.toUpperCase() : v0;
     if ((antes[c] ?? "") === (v ?? "")) continue;
     upd[`items.${k}.${c}`] = v;
     const fmtv = x => c === "f" ? (FASE[x] || x || "") : String(x ?? "");
     cambios[REG_LABEL[c] || c] = [fmtv(antes[c]), fmtv(v)];
+    campos[c] = [antes[c] ?? "", v ?? ""];
   }
   if (!Object.keys(upd).length && !extraBatch) { toast("Sin cambios"); return; }
   const b = writeBatch(db);
   if (Object.keys(upd).length) b.update(doc(db, "listas", L), upd);
-  b.set(doc(collection(db, "historial")), { pacienteId: `${L}:${k}`, nombre: cambiosObj.n || antes.n, accion, cambios, por: S.user.email, fecha: serverTimestamp() });
+  b.set(doc(collection(db, "historial")), { pacienteId: `${L}:${k}`, nombre: cambiosObj.n || antes.n, accion, cambios, campos, por: S.user.email, fecha: serverTimestamp(), ...(meta || {}) });
   if (extraBatch) extraBatch(b);
   b.commit().catch(e => toast("Error al guardar: " + (e.code || e.message)));
   toast(S.online ? "Guardado" : "Guardado en el equipo · se subirá al volver la señal");
@@ -1245,6 +1251,55 @@ function abrirBuscador() {
 }
 addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k" && S.user) { e.preventDefault(); abrirBuscador(); } });
 // ===================== FIN BUSCADOR =====================
+// ===================== DESHACER CAMBIOS (solo administrador) =====================
+S.histCache = {}; S.deshechos = new Set();
+function marcaDeshechos(rows) { rows.forEach(r => r.deshace && S.deshechos.add(r.deshace)); return rows; }
+const NO_UNDO = /^(Deshacer|Paciente agregado|Importado|Registrado|Carga|Corrección|Texto convertido|Estatus convertido|Descarga)/;
+function puedeDeshacer(h) {
+  if (S.rol !== "admin" || !h._id || NO_UNDO.test(h.accion || "")) return false;
+  const id = String(h.pacienteId || "");
+  if (id.includes(":")) return !!(h.campos && Object.keys(h.campos).length);
+  if (h.accion === "Paciente ELIMINADO") return !S.pacientes.some(p => p.id === id);
+  return !!(Object.keys(h.cambios || {}).length && S.pacientes.some(p => p.id === id));
+}
+function undoBtn(h) {
+  if (h._id && S.deshechos.has(h._id)) return `<div style="font-size:12px;color:var(--muted);margin-top:4px">↩ Este cambio ya se deshizo</div>`;
+  if (!puedeDeshacer(h)) return "";
+  S.histCache[h._id] = h;
+  return `<button class="btn" data-undo="${esc(h._id)}" style="margin-top:6px;padding:5px 12px;font-size:12px">↩ Deshacer este cambio</button>`;
+}
+async function deshacer(h) {
+  const id = String(h.pacienteId), quien = `${h.por} · ${h.fecha?.toDate ? h.fecha.toDate().toLocaleString("es-MX") : ""}`;
+  const meta = { deshace: h._id };
+  if (id.includes(":")) {
+    const [L, k] = id.split(":"); const r = S.reg[L]?.[k]; if (!r) return toast("No se encontró el registro");
+    const dif = Object.entries(h.campos).filter(([c, [, d]]) => String(r[c] ?? "") !== String(d ?? ""));
+    if (!confirm(`¿Deshacer "${h.accion}" de ${r.n}? (${quien})${dif.length ? "\n\nOjo: después de ese cambio alguien volvió a modificar " + dif.length + " dato(s); se regresarán al valor anterior de todos modos." : ""}`)) return;
+    const vuelta = Object.fromEntries(Object.entries(h.campos).map(([c, [a]]) => [c, a]));
+    regGuardar(L, k, vuelta, `Deshacer: ${h.accion}`, null, meta); return;
+  }
+  if (h.accion === "Paciente ELIMINADO") {
+    if (!confirm(`¿Recuperar a ${h.nombre}, que fue eliminado? (${quien})`)) return;
+    let p = h.respaldo ? { ...h.respaldo } : null;
+    if (!p) { p = { estudios: {} }; for (const [c, [a]] of Object.entries(h.cambios || {})) { if (c.startsWith("estudios.")) p.estudios[c.slice(9)] = a; else p[c] = a; } }
+    delete p.id; const b = writeBatch(db);
+    b.set(doc(db, "pacientes", id), { ...p, actualizado: serverTimestamp(), actualizadoPor: S.user.email });
+    b.set(doc(collection(db, "historial")), { pacienteId: id, nombre: h.nombre, accion: "Deshacer: paciente recuperado", cambios: {}, por: S.user.email, fecha: serverTimestamp(), ...meta });
+    b.commit().catch(e => toast("Error: " + (e.code || e.message))); toast("Paciente recuperado"); return;
+  }
+  const p = S.pacientes.find(x => x.id === id); if (!p) return toast("No se encontró el paciente");
+  const act = flat(p); const ent = Object.entries(h.cambios || {});
+  const dif = ent.filter(([c, [, d]]) => String(act[c] ?? "") !== String(d ?? ""));
+  if (!confirm(`¿Deshacer "${h.accion}" de ${p.nombre}? (${quien})${dif.length ? "\n\nOjo: después de ese cambio alguien volvió a modificar " + dif.length + " dato(s); se regresarán al valor anterior de todos modos." : ""}`)) return;
+  const upd = {}, cambios = {};
+  for (const [c, [a, d]] of ent) { upd[c] = a ?? ""; cambios[c] = [act[c] ?? "", a ?? ""]; }
+  const b = writeBatch(db);
+  b.update(doc(db, "pacientes", id), { ...upd, actualizado: serverTimestamp(), actualizadoPor: S.user.email });
+  b.set(doc(collection(db, "historial")), { pacienteId: id, nombre: p.nombre, accion: `Deshacer: ${h.accion}`, cambios, por: S.user.email, fecha: serverTimestamp(), ...meta });
+  b.commit().catch(e => toast("Error: " + (e.code || e.message))); toast("Cambio deshecho");
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-undo]"); if (!b) return; e.stopPropagation(); const h = S.histCache[b.dataset.undo]; if (h) deshacer(h); });
+// ===================== FIN DESHACER =====================
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
