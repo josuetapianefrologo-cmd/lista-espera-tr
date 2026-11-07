@@ -416,7 +416,7 @@ function vLista(m) {
   const OCULTOS = ["BAJA DEFINITIVA","TRASPLANTADO"];
   let arr = S.pacientes.filter(p => (!S.fGrupo || p.grupo === S.fGrupo) && (S.fEstatus ? p.estatus === S.fEstatus : !OCULTOS.includes(p.estatus))
     && (!S.fAlerta || protocolo(p).alerta === S.fAlerta)
-    && (!q || norm(p.nombre).includes(q) || (p.nss||"").includes(q) || (p.tel1||"").includes(q) || (p.tel2||"").includes(q)));
+    && (!q || norm(p.nombre).includes(q) || String(p.idCenatra||"").includes(q) || (p.nss||"").includes(q) || (q.replace(/\D/g,"").length >= 4 && String(p.nss||"").replace(/\D/g,"").includes(q.replace(/\D/g,""))) || (p.tel1||"").includes(q) || (p.tel2||"").includes(q)));
   ordenar(arr);
   const ORD_E = ["ACTIVO","EN PROTOCOLO","DIFERIDO TEMPORAL","TRASPLANTADO","BAJA DEFINITIVA"];
   const secs = ORD_E.map(e => [e, arr.filter(p => p.estatus === e)]).filter(([, a]) => a.length);
@@ -424,7 +424,7 @@ function vLista(m) {
   const TIT = { "ACTIVO":"Activos · pueden recibir riñón (aparecen en Elegibles)", "EN PROTOCOLO":"Actualizando protocolo", "DIFERIDO TEMPORAL":"Diferidos temporales · terminaron, pero con estudios vencidos u otra causa temporal", "TRASPLANTADO":"Trasplantados", "BAJA DEFINITIVA":"Bajas definitivas" };
   const gruposUsados = GRUPOS.filter(g => S.pacientes.some(p => p.grupo === g));
   m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes de cadáver que <b>ya terminaron su protocolo</b>. Aquí se vigila la vigencia de sus estudios. <b>Activos</b> = listos para llamarse cuando llegue un riñón. <b>Diferidos temporales</b> = terminaron, pero algo los detiene por ahora (estudios vencidos, infección, no localizados…); al resolverlo regresan a Activos.</div>
-    <div class="search"><input id="q" type="search" placeholder="Buscar nombre, NSS o teléfono" value="${esc(S.q)}"></div>
+    <div class="search"><input id="q" type="search" placeholder="Buscar por nombre, ID CENATRA, NSS o teléfono" value="${esc(S.q)}"></div>
     <div class="chips">${["", ...gruposUsados].map(g => `<button class="chip ${S.fGrupo===g?"on":""}" data-g="${g}">${g || "Todos"}</button>`).join("")}</div>
     <div class="chips">${["", ...ESTATUS].map(e => `<button class="chip ${S.fEstatus===e?"on":""}" data-e="${e}">${e || "Todos (sin bajas ni trasplantados)"}</button>`).join("")}</div>
     <div class="chips">${["","CADUCADO","POR VENCER","INCOMPLETO","VIGENTE","REVALORAR"].map(a => `<button class="chip ${S.fAlerta===a?"on":""}" data-a="${a}">${a ? "Protocolo: "+a : "Cualquier alerta"}</button>`).join("")}</div>
