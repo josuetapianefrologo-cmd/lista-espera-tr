@@ -120,25 +120,45 @@ body.pc .fab{bottom:24px}
 .pc-bar .vb{font-size:13px;color:var(--muted);white-space:nowrap}
 .ley{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--muted);margin-left:auto}
 .ley span{display:flex;align-items:center;gap:4px}.ley i{width:14px;height:14px;border:1px solid #b9c0cc;border-radius:3px;display:inline-block;background:#fff}
-.tbl-wrap{overflow:auto;max-height:calc(100vh - 210px);border:1px solid #c9ced8;border-radius:8px;background:#fff}
+.tbl-wrap{overflow:auto;max-height:calc(100vh - 210px);border:1px solid #dfe3ea;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.06)}
 table.xl{border-collapse:collapse;width:100%;min-width:1500px;table-layout:fixed;font-size:12.5px;line-height:1.3}
-table.xl th{position:sticky;top:0;z-index:1;background:var(--navy);color:#fff;font-weight:600;font-size:11px;padding:7px 5px;text-align:left;border-right:1px solid #2c4a7c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-table.xl td{border:1px solid #d5dae2;padding:4px 6px;vertical-align:top}
+table.xl th{position:sticky;top:0;z-index:1;background:#f5f7fa;color:#475467;font-weight:700;font-size:10.5px;letter-spacing:.04em;padding:9px 6px;text-align:left;border-bottom:2px solid #dfe3ea;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.xl td{border-bottom:1px solid #e9ecf1;padding:7px 6px;vertical-align:top}
 table.xl tbody tr{cursor:pointer}
-table.xl tbody tr:hover td{outline:1px solid #7a8aa6;filter:brightness(.96)}
+table.xl tbody tr:hover td{filter:brightness(.95)}
 table.xl td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
 table.xl td.nw{white-space:nowrap;text-overflow:ellipsis}
 table.xl td{overflow:hidden;overflow-wrap:anywhere}
-table.xl td.nom{font-weight:600}
+table.xl td.nom{font-weight:700;color:#101828}
+table.xl td.obs,table.xl td.tel{color:#475467}
 table.xl td .cl{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 table.xl td.tel .cl,table.xl td.obs .cl{font-size:11.5px}
 table.xl tbody tr:hover .cl{-webkit-line-clamp:12}
-.c-pro td,.ley i.c-pro{background:#fff59d}
-.c-ok td,.ley i.c-ok{background:#a8e0a0}
-.c-ver td,.ley i.c-ver{background:#ffc4f1}
-.c-ci td,.ley i.c-ci{background:#d9d9d9}
-.c-nl td,.ley i.c-nl{background:#9eebf3}
-.c-baja td{background:#f2f3f5;color:#8a93a3;text-decoration:line-through}.ley i.c-baja{background:#f2f3f5}
+/* filas: franja de color a la izquierda + tono suave */
+.c-pro td{background:#fffbea}.c-ok td{background:#eef9f0}.c-ver td{background:#fdf0fa}.c-ci td{background:#f2f3f6}.c-nl td{background:#e9f9fb}
+.c-pro td:first-child{box-shadow:inset 5px 0 0 #f2b705}.c-ok td:first-child{box-shadow:inset 5px 0 0 #2e9d47}.c-ver td:first-child{box-shadow:inset 5px 0 0 #d63fb0}
+.c-ci td:first-child{box-shadow:inset 5px 0 0 #98a2b3}.c-nl td:first-child{box-shadow:inset 5px 0 0 #12b5c9}
+.c-baja td{background:#f7f7f9;color:#98a2b3;text-decoration:line-through}.c-baja td:first-child{box-shadow:inset 5px 0 0 #d0d5dd}
+.ley i.c-pro{background:#f2b705;border-color:#f2b705}.ley i.c-ok{background:#2e9d47;border-color:#2e9d47}.ley i.c-ver{background:#d63fb0;border-color:#d63fb0}
+.ley i.c-ci{background:#98a2b3;border-color:#98a2b3}.ley i.c-nl{background:#12b5c9;border-color:#12b5c9}.ley i.c-baja{background:#eef0f3}
+.card.c-pro{border-left:5px solid #f2b705}.card.c-ok{border-left:5px solid #2e9d47}.card.c-ver{border-left:5px solid #d63fb0}.card.c-ci{border-left:5px solid #98a2b3}.card.c-nl{border-left:5px solid #12b5c9}
+.card[class*=" c-"] td{box-shadow:none}
+/* pastillas, grupo, avance */
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;line-height:1.5;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.p-amb{background:#fff1c2;color:#8a5a00}.p-grn{background:#d9f2df;color:#17663a}.p-red{background:#fde2df;color:#a3221a}.p-gray{background:#e7e9ee;color:#475467}
+.p-cyan{background:#d2f3f7;color:#0b6f7c}.p-pink{background:#fbe0f4;color:#9d1f7c}.p-blue{background:#e1e9fd;color:#1d4ed8}.p-neu{background:#eef0f3;color:#475467}
+.gpb{display:inline-grid;place-items:center;white-space:nowrap;min-width:34px;height:24px;padding:0 6px;border-radius:99px;background:var(--navy);color:#fff;font-weight:700;font-size:11.5px}
+.av{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px}.av b{font-variant-numeric:tabular-nums}
+.av-b{display:inline-block;height:8px;border-radius:99px;background:#e4e7ec;overflow:hidden;vertical-align:middle}.av-b i{display:block;height:100%;border-radius:99px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:10px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px;box-shadow:0 1px 2px rgba(16,24,40,.05)}.kpi b{font-size:24px;display:block;line-height:1.1}.kpi small{color:var(--muted);font-size:12px}
+.sel-f{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:13px;max-width:100%}
+.pl{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.pl-r{display:grid;grid-template-columns:1fr 150px auto 1fr;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line);font-size:14px}
+.pl-nt{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;min-width:0}
+.pl-r:last-child{border-bottom:0}.pl-r.ok .pl-l{color:var(--ok);font-weight:600}.pl-r.na .pl-l{color:var(--muted);text-decoration:line-through}
+.pl-r input[type=date]{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px}.pl-na{font-size:12px;color:var(--muted);white-space:nowrap}
+@media (max-width:760px){.pl-r{grid-template-columns:1fr 1fr}.pl-l,.pl-nt{grid-column:1/-1}}
 td.d-bad{color:#b42318;font-weight:700}td.d-warn{color:#a15c00;font-weight:700}
 .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:8px}
 .cgrid .card{margin:0}
@@ -723,7 +743,7 @@ function regTelLinks(r) {
 
 function regCard(r, mostrarLista = false) {
   const pos = lugar(r.L, r.k);
-  return `<div class="card" data-reg="${esc(r.L)}|${esc(r.k)}"><div class="pt">
+  return `<div class="card ${colorReg(r)}" data-reg="${esc(r.L)}|${esc(r.k)}"><div class="pt">
     <div class="gb" style="min-width:58px;font-size:${pos && pos > 999 ? 13 : 15}px">${r.f === "B" ? "—" : "#" + pos}</div>
     <div class="info"><div class="name">${esc(r.n)}</div>
       <div class="meta">${[mostrarLista ? LST[r.L].n : "", r.id ? "ID " + r.id : "", r.fr ? "Reg. " + fmt(r.fr) : "", r.L === "VIVO" && r.don ? "Donador: " + r.don : ""].filter(Boolean).map(esc).join(" · ")}</div>
@@ -765,14 +785,16 @@ function vEspera(m) {
 function vProtocolo(m) {
   if (PC()) return vProtocoloPC(m);
   const hoyD = hoy();
-  let arr = protFiltrados();
+  let arr = protFiltrados().filter(pasaFalta);
   arr.sort((a,b) => (a.ip || "9999").localeCompare(b.ip || "9999") || (a.o || 0) - (b.o || 0));
   const dias = r => r.ip ? Math.round((hoyD - parse(r.ip)) / 864e5) : null;
   m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes con protocolo <b>en curso</b>. Siguen en su lista de espera con su número. Los que llevan más tiempo aparecen primero, para ver a quién hay que agilizar.</div>
-    <div class="chips">${[["","Todos"],["CAD","Cadáver"],["VIVO","Donador vivo"]].map(([k,l]) => `<button class="chip ${S.fProt===k?"on":""}" data-p="${k}">${l} <b>${todos().filter(r => r.f === "P" && (!k || (k === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"))).length}</b></button>`).join("")}</div>${chipsGrupoProt()}
-    ${arr.map(r => { const d = dias(r); return regCard(r, true).replace('<div class="tags">', `<div class="tags">${d !== null ? `<span class="tag ${d > 180 ? "t-bad" : d > 90 ? "t-warn" : "t-ok"}">${d} días en protocolo</span>` : `<span class="tag t-gray">Sin fecha de inicio</span>`}`); }).join("") || `<div class="empty">Sin pacientes en protocolo.</div>`}`;
-  m.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { S.fProt = b.dataset.p; S.fProtG = ""; render(); });
-  bindChipsGrupoProt(m); bindRegs(m);
+    ${resumenProt(arr)}
+    <div class="chips">${[["","Todos"],["CAD","Cadáver"],["VIVO","Donador vivo"]].map(([k,l]) => `<button class="chip ${S.fProt===k?"on":""}" data-p="${k}">${l} <b>${todos().filter(r => r.f === "P" && (!k || (k === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"))).length}</b></button>`).join("")}</div>${chipsGrupoProt()}<div style="margin-bottom:8px">${filtroFalta()}</div>
+    ${arr.map(r => { const d = dias(r); return regCard(r, true).replace('<div class="tags">', `<div style="margin-top:6px">${barraAvance(r, 120)}</div><div class="meta" style="margin-top:2px">${esc(avance(r).falta.length ? "Faltan: " + faltanTxt(r, 5) : "✓ Completo")}</div>${notasProt(r) ? `<div class="meta" style="margin-top:2px;color:#8a5a00">${esc(notasProt(r))}</div>` : ""}<div class="tags">${diasBadge(d).replace("pill", "tag pill")}`); }).join("") || `<div class="empty">Sin pacientes en protocolo.</div>`}`;
+  m.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { S.fProt = b.dataset.p; S.fProtG = ""; S.fFalta = ""; render(); });
+  m.querySelector("#pfal").onchange = e => { S.fFalta = e.target.value; render(); };
+  bindChipsGrupoProt(m); bindRegs(m); bindProt(m);
 }
 
 function resumenListas() {
@@ -804,7 +826,7 @@ function openReg(L, k) {
       <button class="btn" data-a="editar" style="flex:1">Editar datos</button><button class="btn" data-a="nota" style="flex:1">Registrar llamada / nota</button></div>
     <div class="row" style="margin-top:8px">
       ${r.f === "E" ? `<button class="btn pri" data-a="iniciar" style="flex:1">Iniciar protocolo</button>` : ""}
-      ${r.f === "P" && !vivo ? `<button class="btn pri" data-a="terminar" style="flex:1">Protocolo terminado → Listos</button>` : ""}
+      ${r.f === "P" && !vivo ? `<button class="btn pri" data-a="terminar" style="flex:1">Protocolo terminado → Terminados</button>` : ""}
       ${r.f === "P" ? `<button class="btn" data-a="regresar" style="flex:1">Regresar a espera</button>` : ""}
       ${vivo && r.f !== "B" ? `<button class="btn" data-a="migrar" style="flex:1">Donador no apto → pasar a cadáver</button>` : ""}
       ${r.f !== "B" ? `<button class="btn danger" data-a="baja" style="flex:1">Dar de baja</button>` : (S.rol === "admin" ? `<button class="btn" data-a="reactivar" style="flex:1">Reactivar</button>` : "")}
@@ -819,6 +841,7 @@ function openReg(L, k) {
     ${regTelLinks(r)}
     ${r.obs ? `<div class="card" style="margin-top:12px"><small style="color:var(--muted)">OBSERVACIONES</small><div style="white-space:pre-wrap">${esc(r.obs)}</div></div>` : ""}
     <div class="card" style="margin-top:12px"><div class="kv">${kv}</div></div>
+    ${r.f === "P" || r.prot ? `<button class="btn block" data-a="prot" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px"><span>📋 Seguimiento del protocolo</span>${barraAvance({ ...r, L, k }, 90).replace(/data-prot="[^"]*"/, "")}</button>` : ""}
     ${acciones}
     <div class="sec">Historial</div><div id="hr"><div class="empty" style="padding:10px">Cargando…</div></div>`);
   const un = onSnapshot(query(collection(db, "historial"), where("pacienteId", "==", `${L}:${k}`), limit(40)), snap => {
@@ -828,6 +851,7 @@ function openReg(L, k) {
   sh.el.__onClose = un;
   const act = (a, fn) => { const b = sh.el.querySelector(`[data-a="${a}"]`); if (b) b.onclick = fn; };
   act("verpac", () => sh.close().then(() => openFicha(pac.id)));
+  act("prot", () => sh.close().then(() => openProt(L, k)));
   act("editar", () => sh.close().then(() => regForm(L, k)));
   act("nota", () => sh.close().then(() => regNota(L, k)));
   act("iniciar", () => { if (confirm(`¿Iniciar protocolo de ${r.n}? Conserva su lugar en la lista.`)) { regGuardar(L, k, { f: "P", ip: iso(new Date()) }, "Inicia protocolo"); sh.close(); } });
@@ -840,13 +864,14 @@ function openReg(L, k) {
 
 // Guarda cambios de un registro (funciona sin señal: se sube al volver la conexión)
 function regGuardar(L, k, cambiosObj, accion, extraBatch, meta) {
-  const antes = S.reg[L]?.[k] || {}; const upd = {}, cambios = {}, campos = {};
+  const antes0 = S.reg[L]?.[k] || {}; const upd = {}, cambios = {}, campos = {};
+  const antes = new Proxy(antes0, { get: (o, c) => String(c).includes(".") ? String(c).split(".").reduce((x, p) => x?.[p], o) : o[c] });
   for (const [c, v0] of Object.entries(cambiosObj)) {
     const v = typeof v0 === "string" && !["f","mail","bm"].includes(c) ? v0.toUpperCase() : v0;
     if ((antes[c] ?? "") === (v ?? "")) continue;
     upd[`items.${k}.${c}`] = v;
     const fmtv = x => c === "f" ? (FASE[x] || x || "") : String(x ?? "");
-    cambios[REG_LABEL[c] || c] = [fmtv(antes[c]), fmtv(v)];
+    cambios[c.startsWith("prot.") ? PROT_LBL[c.slice(5)] || c : (REG_LABEL[c] || c)] = [c.startsWith("prot.") ? fmtv(antes[c]) === "NA" ? "No aplica" : fmt(antes[c]) === "—" ? "" : fmt(antes[c]) : fmtv(antes[c]), c.startsWith("prot.") ? v === "NA" ? "No aplica" : v ? fmt(v) : "" : fmtv(v)];
     campos[c] = [antes[c] ?? "", v ?? ""];
   }
   if (!Object.keys(upd).length && !extraBatch) { toast("Sin cambios"); return; }
@@ -948,7 +973,7 @@ function regMigrar(k) {
 function pasarAListos(L, k) {
   const r = S.reg[L][k]; const t = telsDe(r.tel);
   const ref = doc(collection(db, "pacientes"));
-  const est = {}; ESTUDIOS.forEach(([c]) => est[c] = "");
+  const est = {}; ESTUDIOS.forEach(([c]) => est[c] = (r.prot || {})[c] || "");
   const p = { grupo: LST[L].g, nombre: r.n, fnac: r.fnac || "", nss: r.nss || "", agregado: "", tel1: t[0]?.d || "", tel2: t[1]?.d || "", noTx: "", etiologia: "", terapia: "",
     estatus: "ACTIVO", motivo: "", fechaEstatus: iso(new Date()), revalorar: "", estudios: est, ultimoContacto: "", observaciones: r.obs ? r.obs.split("\n")[0] : "",
     idCenatra: r.id || "", regL: L, regK: k, actualizado: serverTimestamp(), actualizadoPor: S.user.email };
@@ -1008,9 +1033,11 @@ function colorPac(p) {
   if (p.estatus === "ACTIVO") return "c-ok";
   return "";
 }
-const tdx = (v, cls = "") => { const t = esc(v ?? ""); return /\b(obs|tel|est|nom2)\b/.test(cls) && t ? `<td class="${cls}"><div class="cl" title="${t}">${t}</div></td>` : `<td${cls ? ` class="${cls}"` : ""}>${t}</td>`; };
-const ANCHO = { "No":46, "#":40, "LUGAR":52, "ID":66, "LISTA":64, "GPO":46, "NOMBRE":210, "NSS":150, "F. REGISTRO":84, "F. RECEPCIÓN":84, "RESIDENCIA":86, "CIUDAD":86, "CURP":160, "EDAD":44, "SEXO":40,
-  "ADSC.":46, "MOD":50, "DONADOR":170, "PARENTESCO":90, "TELÉFONOS":175, "ESTATUS":135, "FASE":105, "INICIO PROTOCOLO":88, "DÍAS":48, "TERAPIA":60, "TX #":42, "PROTOCOLO":95, "VENCE":84, "ÚLT. CONTACTO":88 };
+const tdx = (v, cls = "") => { const t = esc(v ?? "");
+  if (cls === "est" && t) return `<td class="est"><span class="pill ${pillCls(v)}" title="${t}">${t}</span></td>`;
+  if (cls === "gpo") return `<td class="gpo">${t ? `<span class="gpb">${t}</span>` : ""}</td>`; return /\b(obs|tel|est|nom2)\b/.test(cls) && t ? `<td class="${cls}"><div class="cl" title="${t}">${t}</div></td>` : `<td${cls ? ` class="${cls}"` : ""}>${t}</td>`; };
+const ANCHO = { "No":46, "#":40, "LUGAR":52, "ID":66, "LISTA":80, "GPO":58, "NOMBRE":210, "NSS":150, "F. REGISTRO":84, "F. RECEPCIÓN":84, "RESIDENCIA":86, "CIUDAD":86, "CURP":160, "EDAD":44, "SEXO":40,
+  "ADSC.":46, "MOD":50, "DONADOR":170, "PARENTESCO":90, "TELÉFONOS":175, "ESTATUS":135, "FASE":105, "INICIO PROTOCOLO":88, "DÍAS":82, "TERAPIA":60, "TX #":42, "AVANCE":118, "FALTAN":250, "PROTOCOLO":95, "VENCE":84, "ÚLT. CONTACTO":88 };
 const thead = head => `<colgroup>${head.map(h => `<col style="width:${ANCHO[h] ? ANCHO[h] + "px" : "auto"}">`).join("")}</colgroup><thead><tr>${head.map(h => `<th title="${h}">${h}</th>`).join("")}</tr></thead>`;
 const telsTxt = s => telsDe(s).map(x => x.n + (x.et ? " " + x.et : "")).join(" · ") || String(s || "");
 
@@ -1062,22 +1089,25 @@ function vEsperaPC(m) {
 function vProtocoloPC(m) {
   const hoyD = hoy();
   const sel = r => r.f === "P" && (!S.fProt || (S.fProt === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"));
-  const arr = protFiltrados().sort((a,b) => (a.ip || "9999").localeCompare(b.ip || "9999") || (a.o || 0) - (b.o || 0));
+  const arr = protFiltrados().filter(pasaFalta).sort((a,b) => (a.ip || "9999").localeCompare(b.ip || "9999") || (a.o || 0) - (b.o || 0));
   const dias = r => r.ip ? Math.round((hoyD - parse(r.ip)) / 864e5) : null;
-  const head = ["LISTA","GPO","No","ID","NOMBRE","NSS","INICIO PROTOCOLO","DÍAS","DONADOR","TELÉFONOS","ESTATUS","OBSERVACIONES"];
-  m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes con protocolo <b>en curso</b>. Siguen en su lista de espera con su número. Los que llevan más tiempo aparecen primero.</div>
-    <div class="chips">${[["","Todos"],["CAD","Cadáver"],["VIVO","Donador vivo"]].map(([k,l]) => `<button class="chip ${S.fProt===k?"on":""}" data-p="${k}">${l} <b>${todos().filter(r => r.f === "P" && (!k || (k === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"))).length}</b></button>`).join("")}</div>${chipsGrupoProt()}
-    ${arr.length ? `<div class="tbl-wrap"><table class="xl">${thead(head)}<tbody>${arr.map(r => { const d = dias(r); return `<tr class="${colorReg(r)}" data-reg="${esc(r.L)}|${esc(r.k)}">${[
-      tdx(r.L === "VIVO" ? "VIVO" : "CADÁVER","nw"), tdx(grpReg(r),"nw"), tdx(lugar(r.L, r.k),"num"), tdx(r.id,"nw"), tdx(r.n,"nom"), tdx(r.nss,"nw"), tdx(r.ip ? fmt(r.ip) : "Sin fecha","nw"),
-      `<td class="num ${d === null ? "" : d > 180 ? "d-bad" : d > 90 ? "d-warn" : ""}">${d ?? "—"}</td>`, tdx(r.don,"nom2"), tdx(telsTxt(r.tel),"tel"), tdx(r.est,"est"), tdx([r.nota, r.obs].filter(Boolean).join(" · "),"obs")].join("")}</tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">Sin pacientes en protocolo.</div>`}`;
-  m.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { S.fProt = b.dataset.p; S.fProtG = ""; render(); });
-  bindChipsGrupoProt(m); bindTabla(m);
+  const conDon = S.fProt !== "CAD";
+  const head = ["LISTA","GPO","No","ID","NOMBRE","NSS","INICIO PROTOCOLO","DÍAS","AVANCE","FALTAN",...(conDon ? ["DONADOR"] : []),"TELÉFONOS","ESTATUS","OBSERVACIONES"];
+  m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes con protocolo <b>en curso</b>. Siguen en su lista de espera con su número. Los que llevan más tiempo aparecen primero. Toca la barra de <b>avance</b> para ver o capturar sus valoraciones.</div>
+    ${resumenProt(arr)}
+    <div class="chips">${[["","Todos"],["CAD","Cadáver"],["VIVO","Donador vivo"]].map(([k,l]) => `<button class="chip ${S.fProt===k?"on":""}" data-p="${k}">${l} <b>${todos().filter(r => r.f === "P" && (!k || (k === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"))).length}</b></button>`).join("")}</div>${chipsGrupoProt()}<div class="pc-bar">${filtroFalta()}</div>
+    ${arr.length ? `<div class="tbl-wrap"><table class="xl" style="min-width:${conDon ? 1900 : 1720}px">${thead(head)}<tbody>${arr.map(r => { const d = dias(r); return `<tr class="${colorReg(r)}" data-reg="${esc(r.L)}|${esc(r.k)}">${[
+      tdx(r.L === "VIVO" ? "VIVO" : "CADÁVER","nw"), tdx(grpReg(r),"gpo"), tdx(lugar(r.L, r.k),"num"), tdx(r.id,"nw"), tdx(r.n,"nom"), tdx(r.nss,"nw"), tdx(r.ip ? fmt(r.ip) : "Sin fecha","nw"),
+      `<td>${diasBadge(d)}</td>`, `<td>${barraAvance(r, 60)}</td>`, tdx([faltanTxt(r, 3), notasProt(r)].filter(Boolean).join(" · "),"obs"), ...(conDon ? [tdx(r.don,"nom2")] : []), tdx(telsTxt(r.tel),"tel"), tdx(r.est,"est"), tdx([r.nota, r.obs].filter(Boolean).join(" · "),"obs")].join("")}</tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">Sin pacientes en protocolo.</div>`}`;
+  m.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { S.fProt = b.dataset.p; S.fProtG = ""; S.fFalta = ""; render(); });
+  m.querySelector("#pfal").onchange = e => { S.fFalta = e.target.value; render(); };
+  bindChipsGrupoProt(m); bindTabla(m); bindProt(m);
 }
 
 function tablaPacientes(arr) {
   const head = ["GPO","LUGAR","ID","NOMBRE","EDAD","TERAPIA","TX #","ESTATUS","PROTOCOLO","VENCE","TELÉFONOS","ÚLT. CONTACTO","OBSERVACIONES"];
   return `<div class="tbl-wrap"><table class="xl">${thead(head)}<tbody>${arr.map(p => { const pr = protocolo(p);
-    return `<tr class="${colorPac(p)}" data-id="${esc(p.id)}">${[tdx(p.grupo,"nw"), tdx(p.regL ? lugar(p.regL, p.regK) : "","num"), tdx(p.idCenatra,"nw"), tdx(p.nombre,"nom"), tdx(edad(p.fnac),"num"), tdx(p.terapia),
+    return `<tr class="${colorPac(p)}" data-id="${esc(p.id)}">${[tdx(p.grupo,"gpo"), tdx(p.regL ? lugar(p.regL, p.regK) : "","num"), tdx(p.idCenatra,"nw"), tdx(p.nombre,"nom"), tdx(edad(p.fnac),"num"), tdx(p.terapia),
       tdx(p.noTx,"num"), tdx(p.estatus + (p.motivo && /DIFERIDO|BAJA/.test(p.estatus) ? " · " + p.motivo : ""),"est"),
       `<td class="nw ${pr.alerta === "CADUCADO" ? "d-bad" : pr.alerta === "POR VENCER" ? "d-warn" : ""}">${pr.alerta !== "—" ? esc(pr.alerta) : ""}</td>`, tdx(pr.prox && pr.alerta !== "—" ? fmtD(pr.prox) : "","nw"),
       tdx([p.tel1, p.tel2].filter(Boolean).join(" · "),"tel"), tdx(p.ultimoContacto ? fmt(p.ultimoContacto) : "","nw"), tdx(p.observaciones,"obs")].join("")}</tr>`; }).join("")}</tbody></table></div>`;
@@ -1300,6 +1330,103 @@ async function deshacer(h) {
 }
 document.addEventListener("click", e => { const b = e.target.closest("[data-undo]"); if (!b) return; e.stopPropagation(); const h = S.histCache[b.dataset.undo]; if (h) deshacer(h); });
 // ===================== FIN DESHACER =====================
+// ===================== SEGUIMIENTO DEL PROTOCOLO (checklist de valoraciones y estudios) =====================
+const PROT_SEC = [
+  ["val", "Valoraciones y laboratorio del receptor", ESTUDIOS.filter(e => e[0] !== "valorado").map(([k, l]) => [k, l, k === "gineco" ? "F" : ""])],
+  ["gab", "Estudios del receptor", [["rx_senos","RX senos paranasales"],["cistograma","Cistograma miccional"],["rx_torax","RX de tórax"],["ecg","Electrocardiograma"],["usg_abd","USG abdominal (incluye renal)"]].map(x => [...x, ""])],
+  ["muj", "Solo mujeres", [["mastografia","Mastografía (40 años o más)","F40"],["usg_mama","USG de mama","F"],["papanicolaou","Papanicolaou","F"],["usg_pelvico","USG pélvico","F"]]],
+  ["don", "Donador", [["d_mi","Medicina interna"],["d_uro","Urología"],["d_qxtr","Cirugía de trasplante"],["d_psico","Psicología"],["d_infecto","Infectología"],["d_usg_renal","USG renal"],["d_angiotc","AngioTC abdomen y pelvis"],["d_rx_torax","RX de tórax"],["d_ecg","Electrocardiograma"]].map(x => [...x, "DON"])],
+];
+const PROT_ITEMS = PROT_SEC.flatMap(([, , it]) => it);
+const PROT_LBL = Object.fromEntries(PROT_ITEMS.map(([k, l]) => [k, l.replace(" (40 años o más)", "").replace(" (incluye renal)", "")]));
+PROT_ITEMS.forEach(([k]) => REG_LABEL["protn." + k] = "Nota " + PROT_LBL[k]); REG_LABEL.pobs = "Pendientes del protocolo"; REG_LABEL.dobs = "Observaciones del donador";
+const sexoReg = r => { const s = String(r.sx || "").trim().toUpperCase(); if (s === "F" || /^(MUJ|FEM)/.test(s)) return "F"; if (s === "M" || s === "H" || /^(HOM|MAS)/.test(s)) return "M"; const c = String(r.curp || "").toUpperCase(); return c.length >= 11 ? (c[10] === "M" ? "F" : c[10] === "H" ? "M" : "") : ""; };
+function edadReg(r) {
+  if (r.fnac) { const e = edad(r.fnac); if (e !== "") return +e; }
+  const m = String(r.curp || "").toUpperCase().match(/^[A-Z]{4}(\d{2})(\d{2})(\d{2})/); if (!m) return null;
+  const y = +m[1], yy = y + (y > (new Date().getFullYear() % 100) ? 1900 : 2000); return new Date().getFullYear() - yy;
+}
+function aplica(r, cond) {
+  if (!cond) return true;
+  if (cond === "DON") return r.L === "VIVO";
+  const sx = sexoReg(r); if (sx === "M") return false;
+  if (cond === "F40") { const e = edadReg(r); return e === null || e >= 40; }
+  return true;
+}
+function avance(r) {
+  const p = r.prot || {}; let tot = 0, ok = 0; const falta = [];
+  for (const [k, , cond] of PROT_ITEMS) { if (!aplica(r, cond) || p[k] === "NA") continue; tot++; if (p[k]) ok++; else falta.push(k); }
+  return { tot, ok, falta, pct: tot ? Math.round(ok * 100 / tot) : 0 };
+}
+function barraAvance(r, ancho = 90) {
+  const a = avance(r); const col = a.pct === 100 ? "#2e9d47" : a.pct >= 60 ? "#1d4ed8" : a.pct >= 30 ? "#d08a00" : "#b42318";
+  return `<span class="av" data-prot="${esc(r.L)}|${esc(r.k)}" title="Abrir seguimiento"><span class="av-b" style="width:${ancho}px"><i style="width:${a.pct}%;background:${col}"></i></span><b>${a.ok}/${a.tot}</b></span>`;
+}
+const faltanTxt = (r, n = 4) => { const f = avance(r).falta, nt = r.protn || {}; const lb = k => PROT_LBL[k] + (nt[k] ? ` (${nt[k]})` : "");
+  return f.length ? (f.length > n ? f.slice(0, n).map(lb).join(", ") + ` y ${f.length - n} más` : f.map(lb).join(", ")) : "✓ Completo"; };
+const notasProt = r => [r.pobs ? "📝 " + r.pobs : "", r.dobs ? "DONADOR: " + r.dobs : ""].filter(Boolean).join(" · ");
+function bindProt(root) { root.querySelectorAll("[data-prot]").forEach(x => x.onclick = e => { e.stopPropagation(); const [L, k] = x.dataset.prot.split("|"); openProt(L, k); }); }
+
+function openProt(L, k) {
+  const r = { ...S.reg[L]?.[k], L, k }; if (!r.n) return; const p = { ...(r.prot || {}) }, nt = { ...(r.protn || {}) }; const tx = { pobs: r.pobs || "", dobs: r.dobs || "" }; const ed = puedeEditar();
+  let sx = sexoReg(r);
+  const html = () => { const rr = { ...r, sx: sx || r.sx, prot: p }; const a = avance(rr);
+    return `<div class="card" style="background:var(--navy);color:#fff;border:0">
+      <div style="font-size:13px;opacity:.85">${esc(LST[L].n)} · lugar ${lugar(L, k) || "—"}${r.ip ? " · inicio " + fmt(r.ip) : ""}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:6px"><span class="av-b" style="flex:1;height:10px;background:rgba(255,255,255,.25)"><i style="width:${a.pct}%;background:${a.pct === 100 ? "#4ade80" : "#fff"}"></i></span><b style="font-size:18px">${a.ok}/${a.tot}</b></div>
+      ${a.falta.length ? `<div style="font-size:12px;opacity:.85;margin-top:6px">Faltan: ${esc(a.falta.map(x => PROT_LBL[x]).join(", "))}</div>` : `<div style="margin-top:6px;font-weight:600">✓ Protocolo completo</div>`}</div>
+    ${!sexoReg(r) ? `<label class="f">Sexo (para saber qué estudios aplican)<select id="psx"><option value="">—</option><option value="F" ${sx === "F" ? "selected" : ""}>Mujer</option><option value="M" ${sx === "M" ? "selected" : ""}>Hombre</option></select></label>` : ""}
+    ${PROT_SEC.filter(([s]) => s !== "don" || L === "VIVO").map(([s, tit, items]) => { const vis = items.filter(([, , c]) => aplica({ ...rr }, c)); if (!vis.length) return "";
+      return `<div class="sec">${esc(tit)}</div><div class="pl">${vis.map(([c, l]) => { const v = p[c] || ""; return `<div class="pl-r ${v && v !== "NA" ? "ok" : v === "NA" ? "na" : ""}"><span class="pl-l">${v && v !== "NA" ? "✓ " : ""}${esc(l)}</span>
+        <input type="date" data-pd="${c}" value="${v === "NA" ? "" : esc(v)}" ${v === "NA" || !ed ? "disabled" : ""}><label class="pl-na"><input type="checkbox" data-pn="${c}" ${v === "NA" ? "checked" : ""} ${ed ? "" : "disabled"}> No aplica</label>
+        <input class="pl-nt" data-pnt="${c}" value="${esc(nt[c] || "")}" placeholder="Nota (opcional)" ${ed ? "" : "disabled"}></div>`; }).join("")}</div>`; }).join("")}
+    <label class="f" style="margin-top:12px">Pendientes / observaciones del protocolo${L === "VIVO" ? " (receptor)" : ""}<textarea id="pobs" rows="3" placeholder="Ej. pendiente valoración por cardiología por angina; cita 15/11" ${ed ? "" : "disabled"}>${esc(tx.pobs)}</textarea></label>
+    ${L === "VIVO" ? `<label class="f">Observaciones del donador<textarea id="dobs" rows="3" placeholder="Ej. donador con litiasis renal; pendiente RTUP" ${ed ? "" : "disabled"}>${esc(tx.dobs)}</textarea></label>` : ""}
+    ${ed ? `<button class="btn pri block" id="pg" style="margin-top:12px">Guardar seguimiento</button>
+      ${a.pct === 100 && r.f === "P" && L !== "VIVO" ? `<button class="btn block" id="pterm" style="margin-top:8px;background:var(--okbg);color:var(--ok)">Protocolo completo → pasar a Terminados</button>` : ""}` : ""}`; };
+  const sh = sheet(esc(r.n), html());
+  const bind = () => {
+    const leer = () => { sh.el.querySelectorAll("[data-pd]").forEach(i => { const c = i.dataset.pd; p[c] = sh.el.querySelector(`[data-pn="${c}"]`).checked ? "NA" : i.value; });
+      sh.el.querySelectorAll("[data-pnt]").forEach(i => nt[i.dataset.pnt] = i.value.trim()); for (const c of ["pobs","dobs"]) { const t = sh.el.querySelector("#" + c); if (t) tx[c] = t.value.trim(); } };
+    const sxs = sh.el.querySelector("#psx"); if (sxs) sxs.onchange = () => { leer(); sx = sxs.value; sh.el.querySelector(".sh-body").innerHTML = html(); bind(); };
+    sh.el.querySelectorAll("[data-pn]").forEach(c => c.onchange = () => { const d = sh.el.querySelector(`[data-pd="${c.dataset.pn}"]`); d.disabled = c.checked; if (c.checked) d.value = ""; });
+    const g = sh.el.querySelector("#pg"); if (g) g.onclick = () => {
+      leer(); const cambios = {};
+      for (const [c] of PROT_ITEMS) if ((p[c] || "") !== ((r.prot || {})[c] || "")) cambios["prot." + c] = p[c] || "";
+      for (const [c] of PROT_ITEMS) if ((nt[c] || "").toUpperCase() !== ((r.protn || {})[c] || "")) cambios["protn." + c] = nt[c] || "";
+      for (const c of ["pobs","dobs"]) if (tx[c].toUpperCase() !== (r[c] || "")) cambios[c] = tx[c];
+      if (sxs && sx && sx !== (r.sx || "")) cambios.sx = sx;
+      if (!Object.keys(cambios).length) return toast("Sin cambios");
+      regGuardar(L, k, cambios, "Seguimiento de protocolo"); sh.close();
+    };
+    const t = sh.el.querySelector("#pterm"); if (t) t.onclick = () => { if (confirm(`¿Marcar protocolo terminado? ${r.n} pasará a Terminados con las fechas de sus valoraciones. Conserva su lugar en la lista.`)) sh.close().then(() => pasarAListos(L, k)); };
+  };
+  bind();
+}
+function filtroFalta() {
+  const ops = PROT_ITEMS.filter(([, , c]) => c !== "DON" || S.fProt === "VIVO");
+  return `<select id="pfal" class="sel-f"><option value="">Le falta… (cualquier estudio)</option>${ops.map(([c, l]) => `<option value="${c}" ${S.fFalta === c ? "selected" : ""}>Le falta: ${esc(PROT_LBL[c])}</option>`).join("")}</select>`;
+}
+S.fFalta = "";
+const pasaFalta = r => !S.fFalta || avance(r).falta.includes(S.fFalta);
+function resumenProt(arr) {
+  const hoyD = hoy(); const d = r => r.ip ? Math.round((hoyD - parse(r.ip)) / 864e5) : null;
+  const c = [["en protocolo", arr.length, "var(--navy)"], ["más de 6 meses", arr.filter(r => d(r) > 180).length, "#b42318"], ["al 100%", arr.filter(r => avance(r).pct === 100).length, "#2e9d47"], ["sin fecha de inicio", arr.filter(r => !r.ip).length, "#667085"]];
+  return `<div class="kpis">${c.map(([t, n, col]) => `<div class="kpi"><b style="color:${col}">${n}</b><small>${t}</small></div>`).join("")}</div>`;
+}
+const diasBadge = d => d === null ? `<span class="pill p-neu">Sin fecha</span>` : `<span class="pill ${d > 180 ? "p-red" : d > 90 ? "p-amb" : "p-grn"}">${d} días</span>`;
+function pillCls(t) {
+  const s = String(t || "").toUpperCase();
+  if (/BAJA|DEFUNC|TRASPLANTADO/.test(s)) return "p-red";
+  if (/VERIFICAR/.test(s)) return "p-pink";
+  if (/NO LOCALIZ|NO CONTEST/.test(s)) return "p-cyan";
+  if (/CONTRAINDICA|DIFERIDO/.test(s)) return "p-gray";
+  if (/COMPLETO|ACTIVO|VIGENTE/.test(s)) return "p-grn";
+  if (/PROTOCOLO|VENCIDO|INCOMPLETO|POR VENCER/.test(s)) return "p-amb";
+  if (/CITAD|LLAMAR/.test(s)) return "p-blue";
+  return "p-neu";
+}
+// ===================== FIN SEGUIMIENTO =====================
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
