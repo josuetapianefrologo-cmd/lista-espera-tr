@@ -707,7 +707,8 @@ const LST_DE_GRUPO = Object.fromEntries(LISTAS.filter(l => l[1]).map(([id,g]) =>
 const FASE = { E:"EN ESPERA DE TURNO", P:"EN PROTOCOLO", L:"PROTOCOLO TERMINADO", B:"BAJA" };
 const FASE_CLS = { E:"t-gray", P:"t-info", L:"t-ok", B:"t-bad" };
 const MOTIVOS_BAJA_REG = ["Trasplante","Defunción","Cambio de hospital","No desea trasplantarse","Contraindicación definitiva","Migrado a cadáver","Otro"];
-const REG_LABEL = { n:"Nombre", id:"ID CENATRA", nss:"NSS", curp:"CURP", fnac:"Fecha nacimiento", fr:"Fecha de registro", res:"Residencia", tel:"Teléfonos", mail:"Correo",
+function edadVivo(r) { if (r.ed === undefined || r.ed === "" || r.ed === null || isNaN(+r.ed)) return null; let e = +r.ed; const f = r.fr ? parse(r.fr) : null; if (f) e += Math.floor((hoy() - f) / (365.25 * 864e5)); return e; }
+const REG_LABEL = { ed:"Edad al registro", n:"Nombre", id:"ID CENATRA", nss:"NSS", curp:"CURP", fnac:"Fecha nacimiento", fr:"Fecha de registro", res:"Residencia", tel:"Teléfonos", mail:"Correo",
   est:"Estatus (texto)", obs:"Observaciones", f:"Fase", ip:"Inicio de protocolo", bm:"Motivo de baja", bf:"Fecha de baja", don:"Donador", par:"Parentesco", mod:"Modalidad", gpo:"Grupo", sx:"Sexo", adsc:"Adscripción" };
 S.reg = {}; S.pos = {}; S.lst = "CAD_OP"; S.q2 = ""; S.verBajas = false; S.lim = 150; S.fProt = ""; S.mas = "resumen";
 
@@ -746,7 +747,7 @@ function regCard(r, mostrarLista = false) {
   return `<div class="card ${colorReg(r)}" data-reg="${esc(r.L)}|${esc(r.k)}"><div class="pt">
     <div class="gb" style="min-width:58px;font-size:${pos && pos > 999 ? 13 : 15}px">${r.f === "B" ? "—" : "#" + pos}</div>
     <div class="info"><div class="name">${esc(r.n)}</div>
-      <div class="meta">${[mostrarLista ? LST[r.L].n : "", r.id ? "ID " + r.id : "", r.fr ? "Reg. " + fmt(r.fr) : "", r.L === "VIVO" && r.don ? "Donador: " + r.don : ""].filter(Boolean).map(esc).join(" · ")}</div>
+      <div class="meta">${[mostrarLista ? LST[r.L].n : "", r.id ? "ID " + r.id : "", r.fr ? "Reg. " + fmt(r.fr) : "", r.L === "VIVO" && edadVivo(r) !== null ? edadVivo(r) + " años" : "", r.L === "VIVO" && r.don ? "Donador: " + r.don : ""].filter(Boolean).map(esc).join(" · ")}</div>
       <div class="tags"><span class="tag ${FASE_CLS[r.f]}">${FASE[r.f]}${r.f === "B" && r.bm ? " · " + esc(r.bm) : ""}</span>${r.est ? `<span class="tag t-gray">${esc(r.est.slice(0, 40))}</span>` : ""}${r.nota ? `<span class="tag t-warn">${esc(r.nota)}</span>` : ""}</div>
     </div></div></div>`;
 }
@@ -818,7 +819,7 @@ function openReg(L, k) {
   const pos = lugar(L, k), tot = S.pos[L]?.total || 0, vivo = L === "VIVO";
   const pac = r.pid ? S.pacientes.find(p => p.id === r.pid) : null;
   const kv = [["ID CENATRA", r.id],["Fecha de registro", fmt(r.fr)],["NSS", r.nss],["CURP", r.curp],["Nacimiento", r.fnac ? `${fmt(r.fnac)} (${edad(r.fnac)} años)` : ""],["Residencia", r.res],
-    ...(vivo ? [["Grupo", r.gpo],["Sexo", r.sx],["Modalidad", r.mod],["Adscripción", r.adsc],["Donador", r.don],["Parentesco", r.par]] : []),
+    ...(vivo ? [["Edad", edadVivo(r) !== null ? `${edadVivo(r)} años${r.fr ? ` (${r.ed} al registro, ${fmt(r.fr)})` : ""}` : ""],["Grupo", r.gpo],["Sexo", r.sx],["Modalidad", r.mod],["Adscripción", r.adsc],["Donador", r.don],["Parentesco", r.par]] : []),
     ["Inicio de protocolo", fmt(r.ip)],["Correo", r.mail], ...(r.f === "B" ? [["Motivo de baja", r.bm],["Fecha de baja", fmt(r.bf)]] : [])]
     .filter(([,v]) => v && v !== "—").map(([a,v]) => `<div><small>${a}</small>${esc(v)}</div>`).join("");
   const ed = puedeEditar();
@@ -889,7 +890,7 @@ function regForm(L, k) {
   const nuevo = !k; const r = nuevo ? { f: "E", fr: iso(new Date()) } : { ...S.reg[L][k] };
   let lista = L; const vivo = () => lista === "VIVO";
   const campos = () => [["n","Nombre completo *"],["id","ID CENATRA"],["nss","NSS"],["curp","CURP"],["fnac","Fecha de nacimiento","date"],["res","Residencia"],
-    ...(vivo() ? [["gpo","Grupo sanguíneo"],["sx","Sexo"],["mod","Modalidad (HD/DP…)"],["adsc","Adscripción"],["don","Donador"],["par","Parentesco"]] : []),
+    ...(vivo() ? [["ed","Edad al registro (años)"],["gpo","Grupo sanguíneo"],["sx","Sexo"],["mod","Modalidad (HD/DP…)"],["adsc","Adscripción"],["don","Donador"],["par","Parentesco"]] : []),
     ["mail","Correo","email"],["est","Estatus (escribe o elige de la lista)"],["nota","Aviso destacado (ej. VERIFICAR GRUPO)"]];
   const html = () => `${nuevo ? `<label class="f">Lista *<select id="rl">${LISTAS.map(([id,,n]) => `<option value="${id}" ${id===lista?"selected":""}>${n}</option>`).join("")}</select></label>
       <div class="notice" style="background:var(--infobg);color:var(--info)">El nuevo registro queda <b>al final</b> de la lista, con fecha de hoy.</div>` : ""}
@@ -1044,14 +1045,14 @@ const telsTxt = s => telsDe(s).map(x => x.n + (x.et ? " " + x.et : "")).join(" �
 function tablaRegs(arr, conLista) {
   const vivo = !conLista && arr.length && arr.every(r => r.L === "VIVO");
   const head = vivo
-    ? ["#","NOMBRE","NSS","SEXO","F. RECEPCIÓN","ADSC.","GPO","CIUDAD","DONADOR","PARENTESCO","MOD","TELÉFONOS","ESTATUS","INICIO PROTOCOLO","OBSERVACIONES"]
+    ? ["#","NOMBRE","NSS","SEXO","EDAD","F. RECEPCIÓN","ADSC.","GPO","CIUDAD","DONADOR","PARENTESCO","MOD","TELÉFONOS","ESTATUS","INICIO PROTOCOLO","OBSERVACIONES"]
     : [...(conLista ? ["LISTA"] : []), "No","ID","NOMBRE","NSS","F. REGISTRO","RESIDENCIA","CURP","EDAD","TELÉFONOS","ESTATUS","FASE","OBSERVACIONES"];
   const fila = r => {
     const pos = lugar(r.L, r.k); const no = r.f === "B" ? "—" : pos;
     const est = [r.est, r.f === "B" && r.bm ? "BAJA: " + r.bm : ""].filter(Boolean).join(" · ");
     const obs = [r.nota, r.obs].filter(Boolean).join(" · ");
     const cells = vivo
-      ? [tdx(no,"num"), tdx(r.n,"nom"), tdx(r.nss,"nw"), tdx(r.sx), tdx(r.fr ? fmt(r.fr) : "","nw"), tdx(r.adsc), tdx(r.gpo,"nw"), tdx(r.res), tdx(r.don,"nom2"), tdx(r.par), tdx(r.mod),
+      ? [tdx(no,"num"), tdx(r.n,"nom"), tdx(r.nss,"nw"), tdx(r.sx), tdx(edadVivo(r) ?? "","num"), tdx(r.fr ? fmt(r.fr) : "","nw"), tdx(r.adsc), tdx(r.gpo,"nw"), tdx(r.res), tdx(r.don,"nom2"), tdx(r.par), tdx(r.mod),
          tdx(telsTxt(r.tel),"tel"), tdx(est,"est"), tdx(r.ip ? fmt(r.ip) : "","nw"), tdx(obs,"obs")]
       : [...(conLista ? [tdx(LST[r.L].n.replace("Cadáver ",""),"nw")] : []), tdx(no,"num"), tdx(r.id,"nw"), tdx(r.n,"nom"), tdx(r.nss,"nw"), tdx(r.fr ? fmt(r.fr) : "","nw"), tdx(r.res),
          tdx(r.curp,"nw"), tdx(edad(r.fnac),"num"), tdx(telsTxt(r.tel),"tel"), tdx(est,"est"), tdx(r.f === "E" ? "" : FASE[r.f],"nw"), tdx(obs,"obs")];
@@ -1186,11 +1187,11 @@ async function exportarExcelCompleto() {
   for (const [L, g, n] of LISTAS) {
     const vivo = L === "VIVO";
     const arr = regs(L).sort((a, b) => (a.f === "B") - (b.f === "B") || (a.o || 0) - (b.o || 0));
-    const head = vivo ? ["#","NOMBRE","NSS","SEXO","F. RECEPCIÓN","ADSC.","GPO","CIUDAD","DONADOR","PARENTESCO","MODALIDAD","TELÉFONOS","CORREO","ESTATUS","FASE","INICIO PROTOCOLO","OBSERVACIONES","AVISO","MOTIVO BAJA","FECHA BAJA"]
+    const head = vivo ? ["#","NOMBRE","NSS","SEXO","EDAD ACTUAL","EDAD AL REGISTRO","F. RECEPCIÓN","ADSC.","GPO","CIUDAD","DONADOR","PARENTESCO","MODALIDAD","TELÉFONOS","CORREO","ESTATUS","FASE","INICIO PROTOCOLO","OBSERVACIONES","AVISO","MOTIVO BAJA","FECHA BAJA"]
       : ["No","ID","NOMBRE","NSS","F. REGISTRO","RESIDENCIA","CURP","F. NACIMIENTO","TELÉFONOS","CORREO","ESTATUS","FASE","INICIO PROTOCOLO","OBSERVACIONES","AVISO","MOTIVO BAJA","FECHA BAJA"];
     const f = x => x ? fmt(x) : "";
     const rows = arr.map(r => vivo
-      ? [lugar(L, r.k) || "", r.n, r.nss, r.sx, f(r.fr), r.adsc, r.gpo, r.res, r.don, r.par, r.mod, r.tel, r.mail, r.est, fase(r), f(r.ip), r.obs, r.nota, r.bm, f(r.bf)]
+      ? [lugar(L, r.k) || "", r.n, r.nss, r.sx, edadVivo(r) ?? "", r.ed ?? "", f(r.fr), r.adsc, r.gpo, r.res, r.don, r.par, r.mod, r.tel, r.mail, r.est, fase(r), f(r.ip), r.obs, r.nota, r.bm, f(r.bf)]
       : [lugar(L, r.k) || "", r.id, r.n, r.nss, f(r.fr), r.res, r.curp, f(r.fnac), r.tel, r.mail, r.est, fase(r), f(r.ip), r.obs, r.nota, r.bm, f(r.bf)]).map(a => a.map(v => v ?? ""));
     X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet([head, ...rows]), vivo ? "LDVR" : g);
   }
@@ -1345,6 +1346,7 @@ PROT_ITEMS.forEach(([k]) => REG_LABEL["protn." + k] = "Nota " + PROT_LBL[k]); RE
 const sexoReg = r => { const s = String(r.sx || "").trim().toUpperCase(); if (s === "F" || /^(MUJ|FEM)/.test(s)) return "F"; if (s === "M" || s === "H" || /^(HOM|MAS)/.test(s)) return "M"; const c = String(r.curp || "").toUpperCase(); return c.length >= 11 ? (c[10] === "M" ? "F" : c[10] === "H" ? "M" : "") : ""; };
 function edadReg(r) {
   if (r.fnac) { const e = edad(r.fnac); if (e !== "") return +e; }
+  if (r.L === "VIVO" && edadVivo(r) !== null) return edadVivo(r);
   const m = String(r.curp || "").toUpperCase().match(/^[A-Z]{4}(\d{2})(\d{2})(\d{2})/); if (!m) return null;
   const y = +m[1], yy = y + (y > (new Date().getFullYear() % 100) ? 1900 : 2000); return new Date().getFullYear() - yy;
 }
