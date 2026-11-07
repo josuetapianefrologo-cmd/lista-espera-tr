@@ -1091,14 +1091,16 @@ function vProtocoloPC(m) {
   const sel = r => r.f === "P" && (!S.fProt || (S.fProt === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"));
   const arr = protFiltrados().filter(pasaFalta).sort((a,b) => (a.ip || "9999").localeCompare(b.ip || "9999") || (a.o || 0) - (b.o || 0));
   const dias = r => r.ip ? Math.round((hoyD - parse(r.ip)) / 864e5) : null;
-  const conDon = S.fProt !== "CAD";
-  const head = ["LISTA","GPO","No","ID","NOMBRE","NSS","INICIO PROTOCOLO","DÍAS","AVANCE","FALTAN",...(conDon ? ["DONADOR"] : []),"TELÉFONOS","ESTATUS","OBSERVACIONES"];
+  const conDon = S.fProt !== "CAD", conLista = !S.fProt;
+  const W = { LISTA:56, GPO:54, No:42, ID:62, NOMBRE:175, NSS:118, INICIO:92, AVANCE:100, "FALTAN / PENDIENTES":200, DONADOR:140, "TELÉFONOS":140, ESTATUS:118 };
+  const head = [...(conLista ? ["LISTA"] : []),"GPO","No","ID","NOMBRE","NSS","INICIO","AVANCE","FALTAN / PENDIENTES",...(conDon ? ["DONADOR"] : []),"TELÉFONOS","ESTATUS","OBSERVACIONES"];
+  const cab = `<colgroup>${head.map(h => `<col style="width:${W[h] ? W[h] + "px" : "auto"}">`).join("")}</colgroup><thead><tr>${head.map(h => `<th title="${h}">${h}</th>`).join("")}</tr></thead>`;
   m.innerHTML = `<div class="notice" style="background:var(--infobg);color:var(--info)">Pacientes con protocolo <b>en curso</b>. Siguen en su lista de espera con su número. Los que llevan más tiempo aparecen primero. Toca la barra de <b>avance</b> para ver o capturar sus valoraciones.</div>
     ${resumenProt(arr)}
     <div class="chips">${[["","Todos"],["CAD","Cadáver"],["VIVO","Donador vivo"]].map(([k,l]) => `<button class="chip ${S.fProt===k?"on":""}" data-p="${k}">${l} <b>${todos().filter(r => r.f === "P" && (!k || (k === "VIVO" ? r.L === "VIVO" : r.L !== "VIVO"))).length}</b></button>`).join("")}</div>${chipsGrupoProt()}<div class="pc-bar">${filtroFalta()}</div>
-    ${arr.length ? `<div class="tbl-wrap"><table class="xl" style="min-width:${conDon ? 1900 : 1720}px">${thead(head)}<tbody>${arr.map(r => { const d = dias(r); return `<tr class="${colorReg(r)}" data-reg="${esc(r.L)}|${esc(r.k)}">${[
-      tdx(r.L === "VIVO" ? "VIVO" : "CADÁVER","nw"), tdx(grpReg(r),"gpo"), tdx(lugar(r.L, r.k),"num"), tdx(r.id,"nw"), tdx(r.n,"nom"), tdx(r.nss,"nw"), tdx(r.ip ? fmt(r.ip) : "Sin fecha","nw"),
-      `<td>${diasBadge(d)}</td>`, `<td>${barraAvance(r, 60)}</td>`, tdx([faltanTxt(r, 3), notasProt(r)].filter(Boolean).join(" · "),"obs"), ...(conDon ? [tdx(r.don,"nom2")] : []), tdx(telsTxt(r.tel),"tel"), tdx(r.est,"est"), tdx([r.nota, r.obs].filter(Boolean).join(" · "),"obs")].join("")}</tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">Sin pacientes en protocolo.</div>`}`;
+    ${arr.length ? `<div class="tbl-wrap"><table class="xl" style="min-width:${conDon ? 1500 : 1300}px">${cab}<tbody>${arr.map(r => { const d = dias(r); return `<tr class="${colorReg(r)}" data-reg="${esc(r.L)}|${esc(r.k)}">${[
+      ...(conLista ? [tdx(r.L === "VIVO" ? "VIVO" : "CAD","nw")] : []), tdx(grpReg(r),"gpo"), tdx(lugar(r.L, r.k),"num"), tdx(r.id,"nw"), tdx(r.n,"nom"), `<td class="nw" title="${esc(r.nss || "")}">${esc(r.nss || "")}</td>`,
+      `<td>${r.ip ? `<div style="white-space:nowrap;margin-bottom:3px">${fmt(r.ip)}</div>` : ""}${diasBadge(d)}</td>`, `<td>${barraAvance(r, 46)}</td>`, tdx([faltanTxt(r, 3), notasProt(r)].filter(Boolean).join(" · "),"obs"), ...(conDon ? [tdx(r.don,"nom2")] : []), tdx(telsTxt(r.tel),"tel"), tdx(r.est,"est"), tdx([r.nota, r.obs].filter(Boolean).join(" · "),"obs")].join("")}</tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">Sin pacientes en protocolo.</div>`}`;
   m.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { S.fProt = b.dataset.p; S.fProtG = ""; S.fFalta = ""; render(); });
   m.querySelector("#pfal").onchange = e => { S.fFalta = e.target.value; render(); };
   bindChipsGrupoProt(m); bindTabla(m); bindProt(m);
